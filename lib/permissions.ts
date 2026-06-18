@@ -31,9 +31,10 @@ export const ROLE_LABELS: Record<Role, string> = {
 const WRITE_DOMAINS: Record<Role, string[]> = {
   gm: ["*"],
   // contracts are gm-only at the DB (RLS "GM can manage contracts"); keep the UI in step.
-  sales: ["deals", "sales-forecast"],
-  operations: ["production", "inventory", "logistics", "quality"],
-  finance: ["finance", "invoices"],
+  // "tasks" is the shared team to-do — every signed-in role may manage tasks.
+  sales: ["deals", "sales-forecast", "tasks"],
+  operations: ["production", "inventory", "logistics", "quality", "tasks"],
+  finance: ["finance", "invoices", "tasks"],
 };
 
 /** Whether `role` may write within `domain`. */

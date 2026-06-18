@@ -96,6 +96,21 @@ export const invoiceSchema = z.object({
 });
 export type InvoiceInput = z.infer<typeof invoiceSchema>;
 
+export const taskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: optStr,
+  status: z.enum(["todo", "in_progress", "done"]).default("todo"),
+  priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
+  assignee: optStr,
+  due_date: optStr,
+  link_type: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.enum(["deal", "contract", "batch"]).optional(),
+  ),
+  link_id: optStr,
+});
+export type TaskInput = z.infer<typeof taskSchema>;
+
 export const rawMaterialOrderSchema = z.object({
   material: z.string().min(1, "Material is required"),
   supplier: optStr,
