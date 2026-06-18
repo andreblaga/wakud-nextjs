@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import Link from "next/link";
+import { Search, Pencil } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { StatusBadge } from "@/components/ui";
 import { formatNumber, formatUSD, formatPercent } from "@/lib/currency";
@@ -22,7 +23,7 @@ export type DealRow = {
 const STATUSES = ["draft", "approved", "confirmed", "in_transit", "delivered", "paid"];
 const TYPES = ["production", "arbitrage"];
 
-const columns: Column<DealRow>[] = [
+const baseColumns: Column<DealRow>[] = [
   { key: "deal_id", header: "Deal ID", render: (d) => <span className="font-medium text-slate-900">{d.deal_id}</span> },
   { key: "name", header: "Name" },
   { key: "deal_type", header: "Type", render: (d) => <span className="capitalize">{d.deal_type}</span> },
@@ -30,11 +31,23 @@ const columns: Column<DealRow>[] = [
   { key: "tonnes", header: "Tonnes", align: "right", render: (d) => formatNumber(d.tonnes) },
   { key: "profit_per_tonne", header: "Profit/t", align: "right", render: (d) => formatUSD(d.profit_per_tonne, { decimals: true }) },
   { key: "profit", header: "Profit", align: "right", render: (d) => formatUSD(d.profit) },
-  { key: "margin", header: "Margin", align: "right", render: (d) => formatPercent(d.margin) },
+  { key: "margin", header: "Margin", align: "right", render: (d) => formatPercent(d.margin, { isFraction: false }) },
   { key: "status", header: "Status", render: (d) => <StatusBadge status={d.status} /> },
 ];
 
-export default function DealsTable({ deals }: { deals: DealRow[] }) {
+const editColumn: Column<DealRow> = {
+  key: "edit",
+  header: "",
+  align: "right",
+  render: (d) => (
+    <Link href={`/deals/${d.id}/edit`} className="inline-flex text-slate-400 hover:text-brand-700" aria-label={`Edit ${d.deal_id}`}>
+      <Pencil className="h-4 w-4" />
+    </Link>
+  ),
+};
+
+export default function DealsTable({ deals, canEdit = false }: { deals: DealRow[]; canEdit?: boolean }) {
+  const columns = canEdit ? [...baseColumns, editColumn] : baseColumns;
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
   const [query, setQuery] = useState("");

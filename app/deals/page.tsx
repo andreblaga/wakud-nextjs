@@ -1,9 +1,12 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { Handshake, Plus } from "lucide-react";
 import { PageHeader, StatCard } from "@/components/ui";
 import { RoleGate } from "@/components/RoleGate";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/DataTable";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
+import { canWrite } from "@/lib/permissions";
 import { formatPercent } from "@/lib/currency";
 import DealsTable, { type DealRow } from "./DealsTable";
 
@@ -16,9 +19,12 @@ export default function DealsPage() {
         icon={Handshake}
         action={
           <RoleGate domain="deals">
-            <button className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800">
+            <Link
+              href="/deals/new"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800"
+            >
               <Plus className="h-4 w-4" /> New deal
-            </button>
+            </Link>
           </RoleGate>
         }
       />
@@ -40,6 +46,8 @@ async function DealsContent() {
 
   if (error) return <ErrorState message={error.message} />;
 
+  const user = await getSessionUser();
+  const canEdit = canWrite(user?.role, "deals");
   const deals = (data ?? []) as DealRow[];
   const countBy = (s: string) => deals.filter((d) => d.status === s).length;
   const avgMargin = deals.length
@@ -52,11 +60,11 @@ async function DealsContent() {
         <StatCard label="Draft" value={String(countBy("draft"))} />
         <StatCard label="Approved" value={String(countBy("approved"))} />
         <StatCard label="Confirmed" value={String(countBy("confirmed"))} />
-        <StatCard label="Avg margin" value={formatPercent(avgMargin)} accent />
+        <StatCard label="Avg margin" value={formatPercent(avgMargin, { isFraction: false })} accent />
       </div>
 
       {deals.length > 0 ? (
-        <DealsTable deals={deals} />
+        <DealsTable deals={deals} canEdit={canEdit} />
       ) : (
         <EmptyState
           title="No deals yet"

@@ -110,6 +110,7 @@ Domain tables, grouped by the five functional areas:
 - `setup.sql` — consolidated, idempotent rebuild of all 23 tables + RLS + storage bucket + USD/OMR peg. **Verified** against a real Postgres (23 tables, 75 policies, `has_role()` works, runs twice cleanly). Random demo price seeding removed.
 - `assign-roles.sql` — maps user emails → roles after users are created.
 - `grant-privileges.sql` — **(added 2026-06-18)** grants the table/sequence privileges that `setup.sql` omitted. RLS policies alone aren't enough: PostgREST needs SQL `GRANT`s too, or every query returns `42501 permission denied`. Run once in the SQL Editor after `setup.sql`. RLS remains the real security boundary. Discovered when the first live query (`anon` count of `deals`) failed during Phase 0.
+- `phase3-audit-log-policy.sql` — **(added 2026-06-18, Phase 3)** adds the missing `audit_log` INSERT policy (`setup.sql` had only SELECT), so the app's audit helper can record changes. audit_log stays append-only (no UPDATE/DELETE policy). Run once after `grant-privileges.sql`. **Decision: audit is written by a shared server helper (`lib/audit.ts`) called from each server action, not by DB triggers** — so the acting user and a clean before/after diff are captured at the app layer; non-fatal if it fails.
 - `SETUP-CHECKLIST.md` — step-by-step for a non-developer.
 - `data-templates/` — CSV templates + README for importing real deals/contracts/production/stock/prices/orders/invoices.
 - App connects via `.env.local` (see `.env.local.example`); secrets gitignored.

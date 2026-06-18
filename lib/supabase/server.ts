@@ -4,6 +4,9 @@ import type { Database } from "@/lib/supabase/types";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
+/** The non-null server Supabase client type (avoids supabase-js/ssr generic skew). */
+export type ServerSupabaseClient = NonNullable<ReturnType<typeof createClient>>;
+
 /**
  * Server-side Supabase client (for Server Components / route handlers).
  * Returns null if env is not configured yet.
