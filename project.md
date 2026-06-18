@@ -175,7 +175,9 @@ Page → feature map: inventory (UCO stock/intake/reorder), production (B100+gly
 - **Phase 0 ✅** — `lib/supabase/types.ts` generated; clients typed `createClient<Database>()`. Added `supabase/grant-privileges.sql` (run by Andre) to fix the missing table GRANTs that made every query 401.
 - **Phase 1 ✅** — Supabase email/password login, `middleware.ts` session refresh + route protection, server-loaded role in a `SessionProvider`, real user/role + sign-out in `TopBar`, `lib/permissions.ts` + `RoleGate` for write-gating. GM login verified.
 - **Phase 2 ✅** — Reusable `components/DataTable.tsx` (+ Empty/Error/Skeleton states) and `lib/currency.ts` / `lib/dates.ts` helpers. All read pages wired to live Supabase with empty/loading/error states: Dashboard, Deals (filters), Sales Forecast, Production, Inventory, Logistics, Finance, ISCC, Change Log. `PlaceholderPanel` removed. DB is currently empty, so pages render their empty states until real data is imported.
-- Branch: `phase-0-1-supabase-auth` (pending PR/merge).
+- **Phase 3 ✅** — Write flows on `main`. `/new` + `/[id]/edit` for Deals, Contracts, Production plan, Stock, Invoices, Raw-material orders — zod-validated (`lib/schemas.ts`), role-gated server actions (`lib/form-actions.ts` + `RoleGate`), shared form kit (`components/form.tsx`). Audit on every write via `lib/audit.ts` (app-layer helper, not DB triggers). Deal economics engine `lib/deal-economics.ts` (all rates in `DEAL_ASSUMPTIONS`, provisional until finance signs off — flagged on the form) recomputed server-side on save. Reorder logic `lib/reorder.ts` raises `system_alerts`. Added `zod@3.23.8` (next still pinned 14.2.35).
+  - **Andre to run:** `supabase/phase3-audit-log-policy.sql` (adds the audit_log INSERT policy; until then audit writes silently no-op — the rest of the flow works).
+  - **Open ❓ for finance:** confirm the deal-economics assumptions in `docs/deal-economics.md` §"Assumptions to confirm" (VAT as cost vs reclaimable, funding rate, glycerin yield/price $450 vs $220, go thresholds, prefunded payment_type value). Each is a one-line edit in `DEAL_ASSUMPTIONS`.
 
 ## 10. Open items / next steps
 

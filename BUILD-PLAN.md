@@ -43,11 +43,11 @@ Replace placeholders with real queries + a reusable `DataTable`. One PR per page
 - **Done when:** every page shows real data with empty/loading/error states; no remaining `PlaceholderPanel`. ✅ _(All selects validated against the live schema; `PlaceholderPanel` removed; DB currently empty so empty states are what render.)_
 
 ## Phase 3 — Create / edit + write flows
-- [ ] Forms (create/edit) for Deals, Contracts, Production plan, Stock, Invoices, Raw-material orders — validated (zod), role-gated.
-- [ ] **Auto-populate `audit_log`** on create/update/delete (DB triggers or a shared server helper).
-- [ ] **Deal economics engine** — port margin/funding/VAT math from the old Lovable app (see BACKLOG) into a typed `lib/` module; compute on save.
-- [ ] **Reorder logic** — flag/raise alerts when `stock_levels` dips below safety given the production plan + lead times.
-- **Done when:** users can run the deal → production → delivery → invoice flow end to end.
+- [x] Forms (create/edit) for Deals, Contracts, Production plan, Stock, Invoices, Raw-material orders — validated (zod), role-gated. `/new` + `/[id]/edit` routes with server actions; shared form kit in `components/form.tsx`.
+- [x] **Auto-populate `audit_log`** on create/update — shared server helper `lib/audit.ts` (decision noted in project.md). Needs `supabase/phase3-audit-log-policy.sql` (adds the missing INSERT policy).
+- [x] **Deal economics engine** — `lib/deal-economics.ts` per `docs/deal-economics.md`; all rates in `DEAL_ASSUMPTIONS` (provisional defaults flagged via `ASSUMPTION_NOTES`, shown on the form). Recomputed on save server-side; client submits are never trusted.
+- [x] **Reorder logic** — `lib/reorder.ts` flags below-safety (and UCO projected-below-safety) products given the plan + lead times; raises non-duplicate `system_alerts`. Runs on stock save + a "Run reorder check" button.
+- **Done when:** users can run the deal → production → delivery → invoice flow end to end. ✅ _(code complete, build green; full end-to-end click-through pending the audit-log SQL + Andre confirming a save.)_
 
 ## Phase 4 — New modules
 - [ ] **To-Do** — tasks table (add migration), board UI with priority/assignee/due date, item links.
