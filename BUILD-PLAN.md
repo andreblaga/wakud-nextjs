@@ -33,14 +33,14 @@ This is the working roadmap for building WakudOS out from the current first-pass
 Replace placeholders with real queries + a reusable `DataTable`. One PR per page is fine.
 - [x] **Dashboard** — real KPIs (active deals, committed volume, forecast profit, working capital) + `monthly_forecast` chart + live `system_alerts`.
 - [x] **Deals** — list from `deals` with status badges, filters, and the margin/profit columns.
-- [ ] **Sales Forecast** — `contracts` + `contract_volumes` + `monthly_forecast`.
-- [ ] **Production** — `production_plan` vs `production_actuals`; `quality_tests`.
-- [ ] **Inventory** — `stock_levels` (UCO + B100), UCO intake, `raw_material_orders` with below-safety reorder flags.
-- [ ] **Logistics** — `shipments`.
-- [ ] **Finance** — `invoices` (USD + computed OMR), `finance_exports`.
-- [ ] **ISCC** — `iscc_certificates` + the mass-balance chain-of-custody view.
-- [ ] **Change Log** — render `audit_log`.
-- **Done when:** every page shows real data with empty/loading/error states; no remaining `PlaceholderPanel`.
+- [x] **Sales Forecast** — `contracts` + `contract_volumes` + `monthly_forecast`.
+- [x] **Production** — `production_plan` vs actual; `quality_tests`.
+- [x] **Inventory** — `stock_levels` (UCO + B100) + `raw_material_orders` with below-safety reorder flags. (UCO intake table is a Phase 4 module — surfaced as a pending card.)
+- [x] **Logistics** — `shipments`.
+- [x] **Finance** — `invoices` (USD + DB-computed OMR), `finance_exports`. (Excel export button disabled → Phase 4.)
+- [x] **ISCC** — `iscc_certificates` + the mass-balance chain card (full trace → Phase 4).
+- [x] **Change Log** — render `audit_log` (auto-population → Phase 3).
+- **Done when:** every page shows real data with empty/loading/error states; no remaining `PlaceholderPanel`. ✅ _(All selects validated against the live schema; `PlaceholderPanel` removed; DB currently empty so empty states are what render.)_
 
 ## Phase 3 — Create / edit + write flows
 - [ ] Forms (create/edit) for Deals, Contracts, Production plan, Stock, Invoices, Raw-material orders — validated (zod), role-gated.

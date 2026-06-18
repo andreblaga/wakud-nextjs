@@ -169,6 +169,13 @@ First-pass Next.js app. App shell (sidebar nav + topbar), dashboard (KPIs + fore
 
 Page → feature map: inventory (UCO stock/intake/reorder), production (B100+glycerol), sales-forecast, iscc (mass balance), discussions (chat), tasks (to-do), change-log (audit), finance (Excel-export stub), assistant (AI, final phase).
 
+## 9a. Build progress (Claude Code)
+
+- **Phase 0 ✅** — `lib/supabase/types.ts` generated; clients typed `createClient<Database>()`. Added `supabase/grant-privileges.sql` (run by Andre) to fix the missing table GRANTs that made every query 401.
+- **Phase 1 ✅** — Supabase email/password login, `middleware.ts` session refresh + route protection, server-loaded role in a `SessionProvider`, real user/role + sign-out in `TopBar`, `lib/permissions.ts` + `RoleGate` for write-gating. GM login verified.
+- **Phase 2 ✅** — Reusable `components/DataTable.tsx` (+ Empty/Error/Skeleton states) and `lib/currency.ts` / `lib/dates.ts` helpers. All read pages wired to live Supabase with empty/loading/error states: Dashboard, Deals (filters), Sales Forecast, Production, Inventory, Logistics, Finance, ISCC, Change Log. `PlaceholderPanel` removed. DB is currently empty, so pages render their empty states until real data is imported.
+- Branch: `phase-0-1-supabase-auth` (pending PR/merge).
+
 ## 10. Open items / next steps
 
 - **The build roadmap now lives in [`BUILD-PLAN.md`](./BUILD-PLAN.md)** — the phased, checkbox-driven plan Claude Code executes (Phase 0 connect Supabase → 1 auth → 2 wire pages → 3 write flows → 4 new modules → 5 SharePoint → 6 AI).
