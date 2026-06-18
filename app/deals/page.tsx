@@ -1,6 +1,11 @@
+import { Suspense } from "react";
 import { Handshake, Plus } from "lucide-react";
-import { PageHeader, StatCard, PlaceholderPanel } from "@/components/ui";
+import { PageHeader, StatCard } from "@/components/ui";
 import { RoleGate } from "@/components/RoleGate";
+import { EmptyState, ErrorState, TableSkeleton } from "@/components/DataTable";
+import { createClient } from "@/lib/supabase/server";
+import { formatPercent } from "@/lib/currency";
+import DealsTable, { type DealRow } from "./DealsTable";
 
 export default function DealsPage() {
   return (
@@ -17,16 +22,48 @@ export default function DealsPage() {
           </RoleGate>
         }
       />
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Draft" value="1" />
-        <StatCard label="Approved" value="1" />
-        <StatCard label="Confirmed" value="3" />
-        <StatCard label="Avg margin" value="29%" accent />
-      </div>
-      <PlaceholderPanel
-        title="Pipeline"
-        columns={["Deal ID", "Name", "Type", "Buyer", "Tonnes", "Profit/t", "Margin", "Status"]}
-      />
+      <Suspense fallback={<TableSkeleton columns={9} />}>
+        <DealsContent />
+      </Suspense>
     </div>
+  );
+}
+
+async function DealsContent() {
+  const supabase = createClient();
+  if (!supabase) return <ErrorState message="Supabase isn't configured." />;
+
+  const { data, error } = await supabase
+    .from("deals")
+    .select("id, deal_id, name, deal_type, status, buyer, tonnes, profit, margin, profit_per_tonne")
+    .order("created_at", { ascending: false });
+
+  if (error) return <ErrorState message={error.message} />;
+
+  const deals = (data ?? []) as DealRow[];
+  const countBy = (s: string) => deals.filter((d) => d.status === s).length;
+  const avgMargin = deals.length
+    ? deals.reduce((sum, d) => sum + (Number(d.margin) || 0), 0) / deals.length
+    : null;
+
+  return (
+    <>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Draft" value={String(countBy("draft"))} />
+        <StatCard label="Approved" value={String(countBy("approved"))} />
+        <StatCard label="Confirmed" value={String(countBy("confirmed"))} />
+        <StatCard label="Avg margin" value={formatPercent(avgMargin)} accent />
+      </div>
+
+      {deals.length > 0 ? (
+        <DealsTable deals={deals} />
+      ) : (
+        <EmptyState
+          title="No deals yet"
+          message="Create a deal, or import existing ones via supabase/data-templates/deals.csv."
+          icon={Handshake}
+        />
+      )}
+    </>
   );
 }

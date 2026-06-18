@@ -19,20 +19,20 @@ This is the working roadmap for building WakudOS out from the current first-pass
 - [x] Andre creates his Supabase project and runs `supabase/setup.sql` + `assign-roles.sql` (see `supabase/SETUP-CHECKLIST.md`).
 - [x] Add `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `.env.local`.
 - [x] Generate `lib/supabase/types.ts` and type `createClient<Database>()` in both `lib/supabase/client.ts` and `server.ts`.
-- [ ] **Andre: run `supabase/grant-privileges.sql`** in the SQL Editor — `setup.sql` omitted table GRANTs, so live queries 401 with `42501` until this runs.
-- **Done when:** a signed-out `createClient()` no longer returns null locally and a trivial query (e.g. count of `deals`) succeeds. _(Code done; pending the grant SQL above.)_
+- [x] **Andre: run `supabase/grant-privileges.sql`** in the SQL Editor — `setup.sql` omitted table GRANTs, so live queries 401 with `42501` until this runs.
+- **Done when:** a signed-out `createClient()` no longer returns null locally and a trivial query (e.g. count of `deals`) succeeds. ✅ _(verified: anon read of all anon-policy tables returns 200; all tables currently empty.)_
 
 ## Phase 1 — Auth & access control
-- [ ] Wire `app/login/page.tsx` to Supabase email/password sign-in (make it a client component / server action).
-- [ ] Add middleware for session refresh + route protection; redirect unauthenticated users to `/login`.
-- [ ] Load the current user's role; expose via a context/provider. Make `TopBar` show the real user + role (replace the hardcoded "GM").
-- [ ] Hide/disable write actions the role can't perform.
-- **Done when:** seeded users (gm/ops/sales/finance) can log in, see role-appropriate UI, and log out.
+- [x] Wire `app/login/page.tsx` to Supabase email/password sign-in (make it a client component / server action).
+- [x] Add middleware for session refresh + route protection; redirect unauthenticated users to `/login`.
+- [x] Load the current user's role; expose via a context/provider. Make `TopBar` show the real user + role (replace the hardcoded "GM").
+- [x] Hide/disable write actions the role can't perform. (`lib/permissions.ts` + `RoleGate`; applied to Deals "New deal".)
+- **Done when:** seeded users (gm/ops/sales/finance) can log in, see role-appropriate UI, and log out. ✅ _(GM login verified by Andre; route protection verified headless.)_
 
 ## Phase 2 — Wire core read pages to live data
 Replace placeholders with real queries + a reusable `DataTable`. One PR per page is fine.
-- [ ] **Dashboard** — real KPIs (active deals, committed volume, forecast profit, working capital) + `monthly_forecast` chart + live `system_alerts`.
-- [ ] **Deals** — list from `deals` with status badges, filters, and the margin/profit columns.
+- [x] **Dashboard** — real KPIs (active deals, committed volume, forecast profit, working capital) + `monthly_forecast` chart + live `system_alerts`.
+- [x] **Deals** — list from `deals` with status badges, filters, and the margin/profit columns.
 - [ ] **Sales Forecast** — `contracts` + `contract_volumes` + `monthly_forecast`.
 - [ ] **Production** — `production_plan` vs `production_actuals`; `quality_tests`.
 - [ ] **Inventory** — `stock_levels` (UCO + B100), UCO intake, `raw_material_orders` with below-safety reorder flags.
