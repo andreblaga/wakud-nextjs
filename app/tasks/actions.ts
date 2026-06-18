@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { taskSchema, type TaskInput } from "@/lib/schemas";
 import { logAudit } from "@/lib/audit";
 import { requireWriter, zodErrors, type FormState } from "@/lib/form-actions";
-import { extraTable } from "@/lib/supabase/extra";
 import type { TaskStatus } from "./types";
 
 function toRow(t: TaskInput) {
@@ -30,7 +29,7 @@ export async function createTask(_prev: FormState, formData: FormData): Promise<
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
 
   const row = { ...toRow(parsed.data), created_by: writer.userId };
-  const { data, error } = await extraTable(writer.supabase, "tasks").insert(row).select("id").single();
+  const { data, error } = await writer.supabase.from("tasks").insert(row as never).select("id").single();
   if (error) return { ok: false, formError: error.message };
 
   await logAudit(writer.supabase, {
@@ -53,9 +52,9 @@ export async function updateTask(id: string, _prev: FormState, formData: FormDat
   const parsed = taskSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, errors: zodErrors(parsed.error) };
 
-  const { data: existing } = await extraTable(writer.supabase, "tasks").select("*").eq("id", id).single();
+  const { data: existing } = await writer.supabase.from("tasks").select("*").eq("id", id).single();
   const row = { ...toRow(parsed.data), updated_at: new Date().toISOString() };
-  const { error } = await extraTable(writer.supabase, "tasks").update(row).eq("id", id);
+  const { error } = await writer.supabase.from("tasks").update(row as never).eq("id", id);
   if (error) return { ok: false, formError: error.message };
 
   await logAudit(writer.supabase, {
@@ -77,8 +76,9 @@ export async function moveTask(id: string, status: TaskStatus): Promise<void> {
   if ("error" in gate) return;
   const { writer } = gate;
 
-  await extraTable(writer.supabase, "tasks")
-    .update({ status, updated_at: new Date().toISOString() })
+  await writer.supabase
+    .from("tasks")
+    .update({ status, updated_at: new Date().toISOString() } as never)
     .eq("id", id);
 
   await logAudit(writer.supabase, {
@@ -97,7 +97,7 @@ export async function deleteTask(id: string): Promise<void> {
   if ("error" in gate) return;
   const { writer } = gate;
 
-  await extraTable(writer.supabase, "tasks").delete().eq("id", id);
+  await writer.supabase.from("tasks").delete().eq("id", id);
   await logAudit(writer.supabase, {
     userId: writer.userId,
     action: "delete",

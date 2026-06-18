@@ -7,7 +7,6 @@ import { ErrorState } from "@/components/DataTable";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth";
 import { canWrite } from "@/lib/permissions";
-import { extraTable } from "@/lib/supabase/extra";
 import TaskCard from "./TaskCard";
 import { TASK_STATUSES, type TaskRow, type TaskStatus } from "./types";
 
@@ -44,7 +43,7 @@ async function Board() {
   const supabase = createClient();
   if (!supabase) return <ErrorState message="Supabase isn't configured." />;
 
-  const { data, error } = await extraTable(supabase, "tasks").select("*").order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("tasks").select("*").order("created_at", { ascending: false });
   if (error) {
     // tasks table may not exist yet (migration not run).
     return <ErrorState message={`${error.message} — has supabase/phase4-tasks.sql been run?`} />;

@@ -5,7 +5,6 @@ import { Hash, Plus, Send, Link2, Search, MessageSquare, Loader2, CornerDownRigh
 import { Card } from "@/components/ui";
 import { useSession } from "@/components/SessionProvider";
 import { createClient } from "@/lib/supabase/client";
-import { extraTable } from "@/lib/supabase/extra";
 import { MessageBody } from "./MessageBody";
 import type { ChannelRow, MessageRow } from "./types";
 
@@ -39,13 +38,14 @@ export default function Discussions() {
       return;
     }
     let cancelled = false;
-    extraTable(supabase, "channels")
+    supabase
+      .from("channels")
       .select("*")
       .order("name")
-      .then(({ data, error: e }: { data: ChannelRow[] | null; error: { message: string } | null }) => {
+      .then((res) => {
         if (cancelled) return;
-        if (e) setError(`${e.message} — has supabase/phase4-discussions.sql been run?`);
-        const cs = (data ?? []) as ChannelRow[];
+        if (res.error) setError(`${res.error.message} — has supabase/phase4-discussions.sql been run?`);
+        const cs = (res.data ?? []) as ChannelRow[];
         setChannels(cs);
         setActiveId((cur) => cur ?? cs[0]?.id ?? null);
         setLoadingChannels(false);
@@ -72,13 +72,14 @@ export default function Discussions() {
     let cancelled = false;
     setLoadingMsgs(true);
     setMessages([]);
-    extraTable(supabase, "messages")
+    supabase
+      .from("messages")
       .select("*")
       .eq("channel_id", activeId)
       .order("created_at", { ascending: true })
-      .then(({ data }: { data: MessageRow[] | null }) => {
+      .then((res) => {
         if (cancelled) return;
-        setMessages((data ?? []) as MessageRow[]);
+        setMessages((res.data ?? []) as MessageRow[]);
         setLoadingMsgs(false);
       });
 
@@ -102,13 +103,13 @@ export default function Discussions() {
   const send = useCallback(
     async (body: string, parentId: string | null): Promise<string | null> => {
       if (!supabase || !session || !activeId) return "Not ready";
-      const { error: e } = await extraTable(supabase, "messages").insert({
+      const { error: e } = await supabase.from("messages").insert({
         channel_id: activeId,
         parent_id: parentId,
         user_id: session.id,
         author_email: session.email,
         body: body.trim(),
-      });
+      } as never);
       return e ? e.message : null;
     },
     [supabase, session, activeId],
@@ -117,8 +118,9 @@ export default function Discussions() {
   async function createChannel() {
     const clean = newChannel.trim().toLowerCase().replace(/\s+/g, "-");
     if (!clean || !supabase) return;
-    const { data, error: e } = await extraTable(supabase, "channels")
-      .insert({ name: clean, created_by: session?.id ?? null })
+    const { data, error: e } = await supabase
+      .from("channels")
+      .insert({ name: clean, created_by: session?.id ?? null } as never)
       .select("*")
       .single();
     if (e) {

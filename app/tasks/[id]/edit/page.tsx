@@ -4,7 +4,6 @@ import { PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth";
 import { canWrite } from "@/lib/permissions";
-import { extraTable } from "@/lib/supabase/extra";
 import TaskForm, { type TaskDefaults } from "../../TaskForm";
 import { updateTask } from "../../actions";
 import type { TaskRow } from "../../types";
@@ -16,7 +15,7 @@ export default async function EditTaskPage({ params }: { params: { id: string } 
   const supabase = createClient();
   if (!supabase) redirect("/tasks");
 
-  const { data } = await extraTable(supabase, "tasks").select("*").eq("id", params.id).maybeSingle();
+  const { data } = await supabase.from("tasks").select("*").eq("id", params.id).maybeSingle();
   if (!data) notFound();
   const task = data as TaskRow;
   const defaults: TaskDefaults = {

@@ -47,6 +47,30 @@ export type Database = {
         }
         Relationships: []
       }
+      channels: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       contract_volumes: {
         Row: {
           actual_volume: number | null
@@ -522,6 +546,51 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      messages: {
+        Row: {
+          author_email: string | null
+          body: string
+          channel_id: string
+          created_at: string | null
+          id: string
+          parent_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          author_email?: string | null
+          body: string
+          channel_id: string
+          created_at?: string | null
+          id?: string
+          parent_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          author_email?: string | null
+          body?: string
+          channel_id?: string
+          created_at?: string | null
+          id?: string
+          parent_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       monthly_forecast: {
         Row: {
@@ -1077,6 +1146,51 @@ export type Database = {
           resolved_by?: string | null
           severity?: string
           title?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          assignee: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          link_id: string | null
+          link_type: string | null
+          priority: string
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assignee?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          link_id?: string | null
+          link_type?: string | null
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assignee?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          link_id?: string | null
+          link_type?: string | null
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
