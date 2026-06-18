@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Wallet, FileDown, Plus, Pencil } from "lucide-react";
+import { Wallet, Plus, Pencil } from "lucide-react";
 import { PageHeader, StatCard, StatusBadge } from "@/components/ui";
 import { RoleGate } from "@/components/RoleGate";
+import InvoicesExport from "./InvoicesExport";
 import { DataTable, EmptyState, ErrorState, TableSkeleton, type Column } from "@/components/DataTable";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth";
@@ -18,20 +19,11 @@ export default function FinancePage() {
         description="Invoices & finance exports"
         icon={Wallet}
         action={
-          <div className="flex items-center gap-2">
-            <RoleGate domain="finance">
-              <Link href="/finance/invoices/new" className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800">
-                <Plus className="h-4 w-4" /> New invoice
-              </Link>
-            </RoleGate>
-            <button
-              disabled
-              title="Excel export arrives in Phase 4"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-400"
-            >
-              <FileDown className="h-4 w-4" /> Export to Excel
-            </button>
-          </div>
+          <RoleGate domain="finance">
+            <Link href="/finance/invoices/new" className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800">
+              <Plus className="h-4 w-4" /> New invoice
+            </Link>
+          </RoleGate>
         }
       />
       <Suspense fallback={<TableSkeleton columns={7} title="Invoices" />}>
@@ -143,7 +135,12 @@ async function FinanceContent() {
       </div>
 
       {invoices.length > 0 ? (
-        <DataTable title="Invoices" columns={invoiceCols} rows={invoices} getRowKey={(i) => i.id} />
+        <>
+          <div className="mb-3 flex justify-end">
+            <InvoicesExport invoices={invoices} />
+          </div>
+          <DataTable title="Invoices" columns={invoiceCols} rows={invoices} getRowKey={(i) => i.id} />
+        </>
       ) : (
         <EmptyState title="No invoices yet" message="Invoices will appear here once raised." icon={Wallet} />
       )}

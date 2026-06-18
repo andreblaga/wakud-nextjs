@@ -5,7 +5,9 @@ import Link from "next/link";
 import { Search, Pencil } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { StatusBadge } from "@/components/ui";
+import ExportExcelButton from "@/components/ExportExcelButton";
 import { formatNumber, formatUSD, formatPercent } from "@/lib/currency";
+import type { ExportColumn } from "@/lib/export-excel";
 
 export type DealRow = {
   id: string;
@@ -33,6 +35,18 @@ const baseColumns: Column<DealRow>[] = [
   { key: "profit", header: "Profit", align: "right", render: (d) => formatUSD(d.profit) },
   { key: "margin", header: "Margin", align: "right", render: (d) => formatPercent(d.margin, { isFraction: false }) },
   { key: "status", header: "Status", render: (d) => <StatusBadge status={d.status} /> },
+];
+
+const exportColumns: ExportColumn<DealRow>[] = [
+  { header: "Deal ID", value: (d) => d.deal_id },
+  { header: "Name", value: (d) => d.name },
+  { header: "Type", value: (d) => d.deal_type },
+  { header: "Buyer", value: (d) => d.buyer },
+  { header: "Tonnes", value: (d) => d.tonnes ?? null },
+  { header: "Profit/t (USD)", value: (d) => d.profit_per_tonne ?? null },
+  { header: "Profit (USD)", value: (d) => d.profit ?? null },
+  { header: "Margin (%)", value: (d) => d.margin ?? null },
+  { header: "Status", value: (d) => d.status },
 ];
 
 const editColumn: Column<DealRow> = {
@@ -97,6 +111,7 @@ export default function DealsTable({ deals, canEdit = false }: { deals: DealRow[
         <span className="ml-auto text-xs text-slate-400">
           {rows.length} of {deals.length}
         </span>
+        <ExportExcelButton filename="wakud-deals" sheetName="Deals" columns={exportColumns} rows={rows} />
       </div>
 
       <DataTable
