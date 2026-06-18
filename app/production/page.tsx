@@ -1,15 +1,30 @@
 import { Suspense } from "react";
-import { Factory } from "lucide-react";
+import Link from "next/link";
+import { Factory, Plus, Pencil } from "lucide-react";
 import { PageHeader, StatCard, StatusBadge } from "@/components/ui";
+import { RoleGate } from "@/components/RoleGate";
 import { DataTable, EmptyState, ErrorState, TableSkeleton, type Column } from "@/components/DataTable";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
+import { canWrite } from "@/lib/permissions";
 import { formatNumber, formatPercent } from "@/lib/currency";
 import { monthLabel, formatDate } from "@/lib/dates";
 
 export default function ProductionPage() {
   return (
     <div className="mx-auto max-w-7xl">
-      <PageHeader title="Production Status" description="B100 fuel & glycerol output" icon={Factory} />
+      <PageHeader
+        title="Production Status"
+        description="B100 fuel & glycerol output"
+        icon={Factory}
+        action={
+          <RoleGate domain="production">
+            <Link href="/production/new" className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800">
+              <Plus className="h-4 w-4" /> New month
+            </Link>
+          </RoleGate>
+        }
+      />
       <Suspense fallback={<TableSkeleton columns={6} title="Production plan vs actual" />}>
         <ProductionContent />
       </Suspense>
@@ -79,6 +94,23 @@ async function ProductionContent() {
   const plan = (planRes.data ?? []) as PlanRow[];
   const quality = (qualityRes.data ?? []) as QualityRow[];
 
+  const user = await getSessionUser();
+  const planCols = canWrite(user?.role, "production")
+    ? [
+        ...planColumns,
+        {
+          key: "edit",
+          header: "",
+          align: "right",
+          render: (r: PlanRow) => (
+            <Link href={`/production/${r.id}/edit`} className="inline-flex text-slate-400 hover:text-brand-700" aria-label="Edit">
+              <Pencil className="h-4 w-4" />
+            </Link>
+          ),
+        } satisfies Column<PlanRow>,
+      ]
+    : planColumns;
+
   // Latest month (rows are sorted desc) for the KPI cards.
   const latest = plan[0];
   const capacityUsed =
@@ -97,7 +129,7 @@ async function ProductionContent() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {plan.length > 0 ? (
-          <DataTable title="Production plan vs actual" columns={planColumns} rows={plan} getRowKey={(r) => r.id} />
+          <DataTable title="Production plan vs actual" columns={planCols} rows={plan} getRowKey={(r) => r.id} />
         ) : (
           <EmptyState title="No production plan yet" message="Monthly targets and actuals will show here." icon={Factory} />
         )}

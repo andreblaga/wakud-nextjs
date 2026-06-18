@@ -30,7 +30,8 @@ export const ROLE_LABELS: Record<Role, string> = {
  */
 const WRITE_DOMAINS: Record<Role, string[]> = {
   gm: ["*"],
-  sales: ["deals", "contracts", "sales-forecast"],
+  // contracts are gm-only at the DB (RLS "GM can manage contracts"); keep the UI in step.
+  sales: ["deals", "sales-forecast"],
   operations: ["production", "inventory", "logistics", "quality"],
   finance: ["finance", "invoices"],
 };

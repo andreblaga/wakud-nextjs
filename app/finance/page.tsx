@@ -1,8 +1,12 @@
 import { Suspense } from "react";
-import { Wallet, FileDown } from "lucide-react";
+import Link from "next/link";
+import { Wallet, FileDown, Plus, Pencil } from "lucide-react";
 import { PageHeader, StatCard, StatusBadge } from "@/components/ui";
+import { RoleGate } from "@/components/RoleGate";
 import { DataTable, EmptyState, ErrorState, TableSkeleton, type Column } from "@/components/DataTable";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
+import { canWrite } from "@/lib/permissions";
 import { formatUSD, formatOMR, USD_TO_OMR } from "@/lib/currency";
 import { formatDate, currentMonthStart } from "@/lib/dates";
 
@@ -14,13 +18,20 @@ export default function FinancePage() {
         description="Invoices & finance exports"
         icon={Wallet}
         action={
-          <button
-            disabled
-            title="Excel export arrives in Phase 4"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-400"
-          >
-            <FileDown className="h-4 w-4" /> Export to Excel
-          </button>
+          <div className="flex items-center gap-2">
+            <RoleGate domain="finance">
+              <Link href="/finance/invoices/new" className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800">
+                <Plus className="h-4 w-4" /> New invoice
+              </Link>
+            </RoleGate>
+            <button
+              disabled
+              title="Excel export arrives in Phase 4"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-400"
+            >
+              <FileDown className="h-4 w-4" /> Export to Excel
+            </button>
+          </div>
         }
       />
       <Suspense fallback={<TableSkeleton columns={7} title="Invoices" />}>
@@ -92,6 +103,23 @@ async function FinanceContent() {
   const invoices = (invoicesRes.data ?? []) as InvoiceRow[];
   const exports = (exportsRes.data ?? []) as ExportRow[];
 
+  const user = await getSessionUser();
+  const invoiceCols = canWrite(user?.role, "finance")
+    ? [
+        ...invoiceColumns,
+        {
+          key: "edit",
+          header: "",
+          align: "right",
+          render: (i: InvoiceRow) => (
+            <Link href={`/finance/invoices/${i.id}/edit`} className="inline-flex text-slate-400 hover:text-brand-700" aria-label="Edit">
+              <Pencil className="h-4 w-4" />
+            </Link>
+          ),
+        } satisfies Column<InvoiceRow>,
+      ]
+    : invoiceColumns;
+
   const month = currentMonthStart();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -115,7 +143,7 @@ async function FinanceContent() {
       </div>
 
       {invoices.length > 0 ? (
-        <DataTable title="Invoices" columns={invoiceColumns} rows={invoices} getRowKey={(i) => i.id} />
+        <DataTable title="Invoices" columns={invoiceCols} rows={invoices} getRowKey={(i) => i.id} />
       ) : (
         <EmptyState title="No invoices yet" message="Invoices will appear here once raised." icon={Wallet} />
       )}

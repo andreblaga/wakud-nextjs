@@ -1,15 +1,35 @@
 import { Suspense } from "react";
-import { Boxes, ArrowDownToLine, AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { Boxes, ArrowDownToLine, AlertTriangle, Plus, Pencil } from "lucide-react";
 import { PageHeader, StatCard, Card, StatusBadge } from "@/components/ui";
+import { RoleGate } from "@/components/RoleGate";
 import { DataTable, EmptyState, ErrorState, TableSkeleton, type Column } from "@/components/DataTable";
 import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
+import { canWrite } from "@/lib/permissions";
 import { formatNumber } from "@/lib/currency";
 import { monthLabel, formatDate } from "@/lib/dates";
 
 export default function InventoryPage() {
   return (
     <div className="mx-auto max-w-7xl">
-      <PageHeader title="Inventory" description="UCO stock, intake, and material reorder" icon={Boxes} />
+      <PageHeader
+        title="Inventory"
+        description="UCO stock, intake, and material reorder"
+        icon={Boxes}
+        action={
+          <RoleGate domain="inventory">
+            <div className="flex items-center gap-2">
+              <Link href="/inventory/stock/new" className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800">
+                <Plus className="h-4 w-4" /> Stock
+              </Link>
+              <Link href="/inventory/orders/new" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <Plus className="h-4 w-4" /> Order
+              </Link>
+            </div>
+          </RoleGate>
+        }
+      />
       <Suspense fallback={<TableSkeleton columns={7} title="Stock by month" />}>
         <InventoryContent />
       </Suspense>
@@ -100,6 +120,25 @@ async function InventoryContent() {
   const stock = (stockRes.data ?? []) as StockRow[];
   const orders = (ordersRes.data ?? []) as OrderRow[];
 
+  const user = await getSessionUser();
+  const canEdit = canWrite(user?.role, "inventory");
+  const stockCols: Column<StockRow>[] = canEdit
+    ? [...stockColumns, {
+        key: "edit", header: "", align: "right",
+        render: (s: StockRow) => (
+          <Link href={`/inventory/stock/${s.id}/edit`} className="inline-flex text-slate-400 hover:text-brand-700" aria-label="Edit"><Pencil className="h-4 w-4" /></Link>
+        ),
+      }]
+    : stockColumns;
+  const orderCols: Column<OrderRow>[] = canEdit
+    ? [...orderColumns, {
+        key: "edit", header: "", align: "right",
+        render: (o: OrderRow) => (
+          <Link href={`/inventory/orders/${o.id}/edit`} className="inline-flex text-slate-400 hover:text-brand-700" aria-label="Edit"><Pencil className="h-4 w-4" /></Link>
+        ),
+      }]
+    : orderColumns;
+
   // Latest closing per product for the KPI cards.
   const latestByProduct = new Map<string, StockRow>();
   for (const s of stock) {
@@ -121,7 +160,7 @@ async function InventoryContent() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {stock.length > 0 ? (
-          <DataTable title="Stock by month" columns={stockColumns} rows={stock} getRowKey={(s) => s.id} />
+          <DataTable title="Stock by month" columns={stockCols} rows={stock} getRowKey={(s) => s.id} />
         ) : (
           <EmptyState title="No stock records yet" message="Monthly stock levels (UCO, B100, …) will show here." icon={Boxes} />
         )}
@@ -162,7 +201,7 @@ async function InventoryContent() {
 
       {orders.length > 0 && (
         <div className="mt-6">
-          <DataTable title="Raw material orders" columns={orderColumns} rows={orders} getRowKey={(o) => o.id} />
+          <DataTable title="Raw material orders" columns={orderCols} rows={orders} getRowKey={(o) => o.id} />
         </div>
       )}
     </>
