@@ -1,5 +1,6 @@
 import { Handshake, Plus } from "lucide-react";
 import { PageHeader, StatCard, PlaceholderPanel } from "@/components/ui";
+import { RoleGate } from "@/components/RoleGate";
 
 export default function DealsPage() {
   return (
@@ -9,9 +10,11 @@ export default function DealsPage() {
         description="Trade evaluation & deal pipeline"
         icon={Handshake}
         action={
-          <button className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800">
-            <Plus className="h-4 w-4" /> New deal
-          </button>
+          <RoleGate domain="deals">
+            <button className="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-800">
+              <Plus className="h-4 w-4" /> New deal
+            </button>
+          </RoleGate>
         }
       />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
