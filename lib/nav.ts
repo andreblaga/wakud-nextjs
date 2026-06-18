@@ -11,6 +11,7 @@ import {
   MessagesSquare,
   ListChecks,
   History,
+  Bell,
   Bot,
 } from "lucide-react";
 
@@ -24,6 +25,7 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard, description: "Facility overview & key metrics", section: "Overview" },
+  { label: "Alerts", href: "/alerts", icon: Bell, description: "Live notifications & updates", section: "Overview" },
 
   { label: "Production", href: "/production", icon: Factory, description: "B100 fuel & glycerol output status", section: "Operations" },
   { label: "Inventory", href: "/inventory", icon: Boxes, description: "UCO stock, intake & material reorder", section: "Operations" },

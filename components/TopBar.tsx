@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Bell, LogOut, Loader2 } from "lucide-react";
+import { Search, LogOut, Loader2 } from "lucide-react";
 import { useSession } from "@/components/SessionProvider";
+import NotificationsBell from "@/components/NotificationsBell";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_LABELS } from "@/lib/permissions";
 
@@ -37,14 +38,7 @@ export default function TopBar() {
         <span>Search deals, contracts, batches…</span>
       </div>
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent-500" />
-        </button>
+        <NotificationsBell />
 
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-700 text-xs font-semibold text-white">

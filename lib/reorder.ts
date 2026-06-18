@@ -6,30 +6,38 @@ type AlertInsert = Database["public"]["Tables"]["system_alerts"]["Insert"];
 
 export type ReorderResult = { raised: number; flagged: string[] };
 
+/** One product flagged as below (or projected below) its safety stock level. */
+export type ReorderFlag = {
+  product: string;
+  closing: number;
+  safety: number;
+  projected: number;
+  below: boolean;
+  projectedBelow: boolean;
+  critical: boolean;
+  leadDays?: number;
+  /** Human-readable basis, e.g. "at 5 t (safety 20 t)". */
+  basis: string;
+};
+
 /**
- * Reorder check: flag products whose latest stock is below safety — or is
- * projected to fall below after the next planned month's consumption — and
- * raise a system_alert for each, considering supplier lead times. Skips
- * products that already have an open reorder alert (no duplicates).
- *
- * Runs after a stock save and from the "Run reorder check" action on Inventory.
+ * Pure detection: which products are below safety, or projected below after the
+ * next planned month's consumption (UCO), factoring in supplier lead times.
+ * Reads only — no writes. Shared by evaluateReorder() (which raises alerts) and
+ * lib/notifications.ts (which lists them), so the two never diverge.
  */
-export async function evaluateReorder(supabase: ServerSupabaseClient): Promise<ReorderResult> {
+export async function detectReorderFlags(supabase: ServerSupabaseClient): Promise<ReorderFlag[]> {
   const month = currentMonthStart();
 
-  const [stockRes, planRes, orderRes, alertRes] = await Promise.all([
+  const [stockRes, planRes, orderRes] = await Promise.all([
     supabase.from("stock_levels").select("product, month, closing_stock, safety_stock_level").order("month", { ascending: false }),
     supabase.from("production_plan").select("month, uco_consumed").gte("month", month).order("month", { ascending: true }),
     supabase.from("raw_material_orders").select("material, lead_time_days, status").in("status", ["pending", "ordered"]),
-    supabase.from("system_alerts").select("related_entity_id").eq("category", "inventory").eq("alert_type", "reorder").eq("is_resolved", false),
   ]);
 
   const stock = (stockRes.data ?? []) as { product: string; month: string; closing_stock: number | null; safety_stock_level: number | null }[];
   const plans = (planRes.data ?? []) as { month: string; uco_consumed: number | null }[];
   const orders = (orderRes.data ?? []) as { material: string; lead_time_days: number | null }[];
-  const existing = new Set(
-    ((alertRes.data ?? []) as { related_entity_id: string | null }[]).map((a) => a.related_entity_id),
-  );
 
   // Latest stock row per product (rows are month-descending).
   const latest = new Map<string, { closing: number; safety: number }>();
@@ -50,16 +58,13 @@ export async function evaluateReorder(supabase: ServerSupabaseClient): Promise<R
     if (cur === undefined || d < cur) leadByMaterial.set(o.material, d);
   }
 
-  const toRaise: AlertInsert[] = [];
-  const flagged: string[] = [];
-
+  const flags: ReorderFlag[] = [];
   for (const [product, { closing, safety }] of Array.from(latest.entries())) {
     const consumption = product.toUpperCase() === "UCO" ? nextUcoConsumption : 0;
     const projected = closing - consumption;
     const below = closing < safety;
     const projectedBelow = projected < safety;
     if (!below && !projectedBelow) continue;
-    if (existing.has(product)) continue; // already alerted, not resolved
 
     const critical = closing <= 0 || projected <= 0;
     const leadDays = leadByMaterial.get(product);
@@ -67,16 +72,42 @@ export async function evaluateReorder(supabase: ServerSupabaseClient): Promise<R
       ? `at ${closing} t (safety ${safety} t)`
       : `projected ${projected} t after ${consumption} t consumption (safety ${safety} t)`;
 
+    flags.push({ product, closing, safety, projected, below, projectedBelow, critical, leadDays, basis });
+  }
+  return flags;
+}
+
+/**
+ * Reorder check: detect below-safety products and raise a system_alert for each,
+ * skipping products that already have an open reorder alert (no duplicates).
+ *
+ * Runs after a stock save and from the "Run reorder check" action on Inventory.
+ */
+export async function evaluateReorder(supabase: ServerSupabaseClient): Promise<ReorderResult> {
+  const [flags, alertRes] = await Promise.all([
+    detectReorderFlags(supabase),
+    supabase.from("system_alerts").select("related_entity_id").eq("category", "inventory").eq("alert_type", "reorder").eq("is_resolved", false),
+  ]);
+
+  const existing = new Set(
+    ((alertRes.data ?? []) as { related_entity_id: string | null }[]).map((a) => a.related_entity_id),
+  );
+
+  const toRaise: AlertInsert[] = [];
+  const flagged: string[] = [];
+
+  for (const f of flags) {
+    if (existing.has(f.product)) continue; // already alerted, not resolved
     toRaise.push({
       alert_type: "reorder",
-      severity: critical ? "critical" : "warning",
-      title: `Reorder ${product}`,
-      description: `${product} ${basis}.${leadDays !== undefined ? ` Supplier lead time ~${leadDays}d.` : ""}`,
+      severity: f.critical ? "critical" : "warning",
+      title: `Reorder ${f.product}`,
+      description: `${f.product} ${f.basis}.${f.leadDays !== undefined ? ` Supplier lead time ~${f.leadDays}d.` : ""}`,
       category: "inventory",
       related_entity_type: "stock_product",
-      related_entity_id: product,
+      related_entity_id: f.product,
     });
-    flagged.push(product);
+    flagged.push(f.product);
   }
 
   if (toRaise.length > 0) {
