@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { stockLevelSchema, type StockLevelInput } from "@/lib/schemas";
 import { logAudit } from "@/lib/audit";
+import { evaluateReorder } from "@/lib/reorder";
 import { requireWriter, zodErrors, normalizeMonth, type FormState } from "@/lib/form-actions";
 import type { Database } from "@/lib/supabase/types";
 
@@ -52,6 +53,9 @@ export async function createStockLevel(_prev: FormState, formData: FormData): Pr
     newValue: row,
   });
 
+  // Re-evaluate reorder alerts after the stock change (best-effort).
+  await evaluateReorder(writer.supabase).catch(() => {});
+
   revalidatePath("/inventory");
   redirect("/inventory");
 }
@@ -77,6 +81,8 @@ export async function updateStockLevel(id: string, _prev: FormState, formData: F
     oldValue: existing,
     newValue: row,
   });
+
+  await evaluateReorder(writer.supabase).catch(() => {});
 
   revalidatePath("/inventory");
   redirect("/inventory");

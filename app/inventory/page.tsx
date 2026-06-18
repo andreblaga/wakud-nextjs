@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Boxes, ArrowDownToLine, AlertTriangle, Plus, Pencil } from "lucide-react";
 import { PageHeader, StatCard, Card, StatusBadge } from "@/components/ui";
 import { RoleGate } from "@/components/RoleGate";
+import ReorderButton from "./ReorderButton";
 import { DataTable, EmptyState, ErrorState, TableSkeleton, type Column } from "@/components/DataTable";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth";
@@ -195,6 +196,9 @@ async function InventoryContent() {
             ) : (
               <p className="text-xs text-slate-400">No products below their safety level.</p>
             )}
+            <RoleGate domain="inventory">
+              <ReorderButton />
+            </RoleGate>
           </Card>
         </div>
       </div>
