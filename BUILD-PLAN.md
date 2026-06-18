@@ -16,10 +16,11 @@ This is the working roadmap for building WakudOS out from the current first-pass
 ---
 
 ## Phase 0 — Connect Supabase (unblocks everything)
-- [ ] Andre creates his Supabase project and runs `supabase/setup.sql` + `assign-roles.sql` (see `supabase/SETUP-CHECKLIST.md`).
-- [ ] Add `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `.env.local`.
-- [ ] Generate `lib/supabase/types.ts`.
-- **Done when:** a signed-out `createClient()` no longer returns null locally and a trivial query (e.g. count of `deals`) succeeds.
+- [x] Andre creates his Supabase project and runs `supabase/setup.sql` + `assign-roles.sql` (see `supabase/SETUP-CHECKLIST.md`).
+- [x] Add `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` to `.env.local`.
+- [x] Generate `lib/supabase/types.ts` and type `createClient<Database>()` in both `lib/supabase/client.ts` and `server.ts`.
+- [ ] **Andre: run `supabase/grant-privileges.sql`** in the SQL Editor — `setup.sql` omitted table GRANTs, so live queries 401 with `42501` until this runs.
+- **Done when:** a signed-out `createClient()` no longer returns null locally and a trivial query (e.g. count of `deals`) succeeds. _(Code done; pending the grant SQL above.)_
 
 ## Phase 1 — Auth & access control
 - [ ] Wire `app/login/page.tsx` to Supabase email/password sign-in (make it a client component / server action).

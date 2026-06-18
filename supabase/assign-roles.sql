@@ -18,7 +18,7 @@ INSERT INTO public.user_roles (user_id, role)
 SELECT u.id, v.role
 FROM auth.users u
 JOIN (VALUES
-    ('gm@yourcompany.com',        'gm'),
+    ('andreblaga@gmail.com',        'gm'),
     ('ops@yourcompany.com',       'operations'),
     ('sales@yourcompany.com',     'sales'),
     ('finance@yourcompany.com',   'finance')
