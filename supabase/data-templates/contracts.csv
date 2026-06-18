@@ -1,0 +1,2 @@
+name,buyer,price_per_tonne,is_active,status,start_date,end_date,renewal_date,payment_terms,incoterm,auto_renew,termination_notice_days
+OMCO-Salalah,OMCO,1430,true,active,2026-07-01,2027-06-30,2027-05-01,prepaid,FOB,false,30

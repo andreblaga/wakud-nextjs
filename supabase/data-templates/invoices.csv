@@ -1,0 +1,2 @@
+invoice_number,deal_id,buyer,amount_usd,issue_date,due_date,paid_date,status,payment_method,notes
+INV-0001,F300,OMCO,159500,2026-07-05,2026-08-04,,draft,bank_transfer,Example row

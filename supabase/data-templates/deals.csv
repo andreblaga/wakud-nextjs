@@ -1,0 +1,2 @@
+deal_id,name,deal_type,status,buyer,input_product,output_product,producer,disport,tonnes,buy_price_per_tonne,sell_price_per_tonne,shipping_per_tonne,trucking_per_tonne,payment_type,vat_rate,funding_rate,start_month,end_month,notes
+F300,UCO->B100 Wakud->Salalah,production,confirmed,OMCO,UCO,B100,Wakud,Salalah,100,916,1595,0,0,prepaid,0.05,0.10,2026-07-01,2026-07-31,Example row - replace or delete

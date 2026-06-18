@@ -1,0 +1,2 @@
+contract_name,month,planned_volume,actual_volume,status,invoice_number,invoice_status,payment_date
+OMCO-Salalah,2026-07-01,30,0,planned,,pending,

@@ -1,0 +1,2 @@
+product,month,opening_stock,produced,purchased,delivered,closing_stock,safety_stock_level,is_below_safety
+B100,2026-07-01,40,135,0,100,75,20,false

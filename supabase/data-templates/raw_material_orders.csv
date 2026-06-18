@@ -1,0 +1,2 @@
+material,supplier,quantity_kg,unit_price,lead_time_days,order_date,required_by,expected_delivery,status,linked_month,auto_generated,notes
+Methanol,SupplierName,15000,0.55,14,2026-06-15,2026-07-01,2026-06-29,pending,2026-07-01,false,Example row
