@@ -50,9 +50,10 @@ Replace placeholders with real queries + a reusable `DataTable`. One PR per page
 - **Done when:** users can run the deal → production → delivery → invoice flow end to end. ✅ _(code complete, build green; full end-to-end click-through pending the audit-log SQL + Andre confirming a save.)_
 
 ## Phase 4 — New modules
-- [ ] **To-Do** — tasks table (add migration), board UI with priority/assignee/due date, item links.
-- [ ] **Discussions** — in-app chat: channels, messages, threads, deep-link references to deals/contracts/batches, searchable archive. Use Supabase Realtime. (Add tables via migration.)
-- [ ] **Export to Excel** — per-page export of tables/figures (server-side via a library, or client-side). Start with Finance + Deals.
+- [x] **To-Do** — `tasks` table (`supabase/phase4-tasks.sql`), board UI (To-Do/In progress/Done) with priority/assignee/due date, item links, per-card move/edit/delete.
+- [x] **Discussions** — in-app chat: channels, threaded messages, `@deal:/@contract:/@batch:` deep-link references, in-channel search. Supabase Realtime. (`supabase/phase4-discussions.sql`.)
+- [x] **Export to Excel** — client-side via exceljs (`lib/export-excel.ts` + `ExportExcelButton`). Wired into Finance + Deals (Deals respects active filters).
+- **Migrations to run:** `supabase/phase4-tasks.sql`, `supabase/phase4-discussions.sql` (+ enable Realtime).
 
 ## Phase 5 — SharePoint sync (blocked on Andre: M365 access + data format)
 - [ ] Confirm source format (Excel files vs Lists) and get M365 app registration (tenant/client/secret).
