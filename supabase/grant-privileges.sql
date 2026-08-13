@@ -49,6 +49,19 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO authenticated;
 
+-- Service role (server-only key): used by the Admin screen (app/admin) and the
+-- SharePoint sync to read/write via PostgREST. It bypasses RLS, but STILL needs
+-- table GRANTs or every service-role query fails with 42501 "permission denied
+-- for table ...". Supabase's defaults don't reliably cover it here, so grant
+-- explicitly. Never exposed to the browser — server-side only.
+GRANT USAGE ON SCHEMA public TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO service_role;
+
 -- ============================================================================
 -- Verify: a signed-in query (e.g. count of deals) succeeds and stops returning
 -- 42501. A signed-out (anon) query should now fail — that is intended.

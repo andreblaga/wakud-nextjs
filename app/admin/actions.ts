@@ -78,8 +78,9 @@ export async function createUser(_prev: FormState, formData: FormData): Promise<
   return {
     ok: true,
     message: generated
-      ? `Created ${email} as ${ROLE_LABELS[role]}. Temporary password: ${password} — copy it now, it won't be shown again.`
+      ? `Created ${email} as ${ROLE_LABELS[role]}. Copy the temporary password now — it won't be shown again.`
       : `Created ${email} as ${ROLE_LABELS[role]}.`,
+    secret: generated ? password : undefined,
   };
 }
 
@@ -159,4 +160,53 @@ export async function setUserActive(_prev: FormState, formData: FormData): Promi
 
   revalidatePath("/admin");
   return { ok: true, message: active ? "Account reactivated." : "Account deactivated." };
+}
+
+/**
+ * Reset a user's password to a new temporary one.
+ *
+ * The admin-driven counterpart to self-serve reset (still pending). The new
+ * password is returned once in `secret` for the admin to hand over — it is
+ * never audited, logged, or stored. The audit row records only that a reset
+ * happened.
+ *
+ * No self-guard: an admin resetting their own password is fine.
+ */
+export async function resetPassword(_prev: FormState, formData: FormData): Promise<FormState> {
+  const gate = await requireAdmin();
+  if ("error" in gate) return gate.error;
+  const { admin } = gate;
+
+  const userId = String(formData.get("user_id") ?? "");
+  if (!userId) return { ok: false, formError: "No user selected." };
+
+  const typed = String(formData.get("password") ?? "").trim();
+  if (typed && typed.length < 8) {
+    return { ok: false, formError: "Password must be at least 8 characters." };
+  }
+  const password = typed || generatePassword();
+  const generated = !typed;
+
+  const { data, error } = await admin.service.auth.admin.updateUserById(userId, { password });
+  if (error) return { ok: false, formError: error.message };
+
+  const email = data.user?.email ?? "this user";
+
+  await logAudit(admin.supabase, {
+    userId: admin.userId,
+    action: "update",
+    entityType: "user",
+    entityId: userId,
+    // Deliberately records only that a reset happened — never the password.
+    newValue: { password_reset: true },
+  });
+
+  revalidatePath("/admin");
+  return {
+    ok: true,
+    message: generated
+      ? `Password reset for ${email}. Copy the new temporary password now — it won't be shown again.`
+      : `Password updated for ${email}.`,
+    secret: generated ? password : undefined,
+  };
 }

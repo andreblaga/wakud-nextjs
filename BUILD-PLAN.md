@@ -80,7 +80,7 @@ Full prioritised plan + decisions in [`docs/go-live-plan.md`](./docs/go-live-pla
 - [x] **P0** RLS hardening — `supabase/roles-rls.sql`: per-role write matrix replaces every `WITH CHECK (true)` policy, self-insert role hole dropped, **all anon read access removed** (it exposed commercial data via the public anon key), documents bucket made private. **Andre: run the migration.**
 - [x] **P1** New **`admin` role above GM** (superuser: users/roles + system settings; GM loses those) + `executive_viewer` read-only role — `lib/permissions.ts` (`isAdmin()`), enforced at the DB too.
 - [x] **P1** User provisioning + Admin screen — `/admin`: list/create users, change roles, deactivate. Roster is in `supabase/assign-roles.sql`; **the eight accounts still need creating** (via `/admin` or Supabase Auth).
-- [ ] **P1** Auth hardening: password reset, email confirmation, session timeout.
+- [ ] **P1** Auth hardening: password reset _(admin-driven reset ✅ — per-user button on `/admin`; **self-serve reset still to build**)_, email confirmation, session timeout.
 - [ ] **P2** Finance sign-off on deal-economics assumptions.
 - [ ] **P3** PDF export + templates: invoices, ISCC/PoS, finance/forecast reports, per-page snapshot.
 - [ ] **P3** Realtime: live on Deals/Inventory/Production/Alerts; auto-refresh elsewhere (see plan).

@@ -7,6 +7,7 @@ import { Card } from "@/components/ui";
 import { TextInput, SelectInput, FormError, SubmitButton } from "@/components/form";
 import { INITIAL_FORM_STATE } from "@/lib/form-state";
 import { ROLES, ROLE_LABELS } from "@/lib/permissions";
+import SecretNotice from "./SecretNotice";
 import { createUser } from "./actions";
 
 const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }));
@@ -47,11 +48,7 @@ export default function NewUserForm() {
         />
 
         <FormError message={state.formError} />
-        {state.ok && state.message && (
-          <div className="rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-900">
-            {state.message}
-          </div>
-        )}
+        {state.ok && <SecretNotice message={state.message} secret={state.secret} />}
 
         <SubmitButton>Create user</SubmitButton>
       </form>

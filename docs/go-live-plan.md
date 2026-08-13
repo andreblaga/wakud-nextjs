@@ -38,7 +38,7 @@ _Open: no dedicated **Sales** or **Finance** role-holder in the roster — those
 
 4. ~~**Admin role (above GM)**~~ — ✅ **built 2026-08-13.** `admin` + `executive_viewer` in `lib/permissions.ts` (six roles), `isAdmin()` gates admin areas, and the DB enforces the same via `has_any_role()`/`is_admin()`. GM keeps business-full-access, loses user management and settings. Note: system **assumptions** are still in code (`DEAL_ASSUMPTIONS`) — moving them to an admin-editable settings table is the remaining piece of this item. [Claude Code]
 5. ~~**User provisioning + Admin screen**~~ — ✅ **built 2026-08-13.** `/admin` lists users with role + last sign-in, creates accounts (service-role client, server-only), changes roles, deactivates/reactivates. **Remaining: the eight accounts still need creating** — either through `/admin` or Supabase Auth + `supabase/assign-roles.sql`. [Andre]
-6. **Auth hardening:** self-serve password reset, email confirmation, session timeout. Needed before onboarding staff (a forgotten password is currently a manual dashboard fix). [Claude Code]
+6. **Auth hardening:** ~~password reset~~ **partly done 2026-08-13** — an admin can now reset any user's password from `/admin` (one click, new temp password shown once). Still to build: **self-serve** reset for the user themselves, email confirmation, session timeout. A forgotten password is no longer a dashboard fix, but it does still need Andre. [Claude Code]
 
 ## P2 — Correctness & data
 

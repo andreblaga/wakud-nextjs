@@ -21,6 +21,7 @@ SELECT u.id, v.role
 FROM auth.users u
 JOIN (VALUES
     ('andre@the-utopia.world',    'admin'),
+    ('andreblaga@gmail.com',      'admin'),   -- Andre's second login
     ('john@the-utopia.world',     'executive_viewer'),
     ('faris@the-utopia.world',    'executive_viewer'),
     ('yawar@the-utopia.world',    'executive_viewer'),
