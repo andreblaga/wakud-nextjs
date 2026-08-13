@@ -13,6 +13,7 @@ import {
   History,
   Bell,
   Bot,
+  ShieldAlert,
 } from "lucide-react";
 
 export type NavItem = {
@@ -20,7 +21,9 @@ export type NavItem = {
   href: string;
   icon: LucideIcon;
   description: string;
-  section: "Overview" | "Operations" | "Commercial" | "Compliance" | "Collaboration";
+  section: "Overview" | "Operations" | "Commercial" | "Compliance" | "Collaboration" | "System";
+  /** Rendered only for the admin role (see Sidebar). GM does not see these. */
+  adminOnly?: boolean;
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -41,6 +44,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Discussions", href: "/discussions", icon: MessagesSquare, description: "Team chat & item references", section: "Collaboration" },
   { label: "To-Do", href: "/tasks", icon: ListChecks, description: "Timeline & priorities", section: "Collaboration" },
   { label: "Assistant", href: "/assistant", icon: Bot, description: "Ask questions about your data", section: "Collaboration" },
+
+  { label: "Admin", href: "/admin", icon: ShieldAlert, description: "Users, roles & system settings", section: "System", adminOnly: true },
 ];
 
 export const NAV_SECTIONS: NavItem["section"][] = [
@@ -49,4 +54,5 @@ export const NAV_SECTIONS: NavItem["section"][] = [
   "Commercial",
   "Compliance",
   "Collaboration",
+  "System",
 ];

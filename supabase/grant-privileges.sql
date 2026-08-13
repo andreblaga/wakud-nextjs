@@ -23,29 +23,33 @@
 -- Schema usage (required before any table access).
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 
--- Signed-out (anon): read-only. RLS still limits this to the tables that have
--- an explicit "Anon can read ..." policy (deals, contracts, contract_volumes,
--- production_plan, stock_levels, prices, monthly_forecast, price_feeds).
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
+-- Signed-out (anon): NO table access.
+--
+-- This originally granted anon SELECT on every table, paired with "Anon can
+-- read ..." policies on deals, contracts, contract_volumes, production_plan,
+-- stock_levels, prices, monthly_forecast and price_feeds. Because the anon key
+-- ships in the browser bundle, that made commercial data readable over the REST
+-- API by anyone who could load the login page. Both the grant and the policies
+-- were removed in supabase/roles-rls.sql — do not reinstate them here.
+--
+--   (was: GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;)
 
--- Signed-in (authenticated): full DML at the GRANT layer; RLS policies from
--- setup.sql gate what each role may actually read/write (e.g. only GM can
--- write contracts). This mirrors Supabase's default public-schema grants.
+-- Signed-in (authenticated): full DML at the GRANT layer; the RLS policies in
+-- supabase/roles-rls.sql gate what each role may actually read/write (e.g. only
+-- admin/gm can write contracts). Mirrors Supabase's default public-schema grants.
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
 
 -- Sequences (for any serial/identity columns).
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
 -- Apply the same grants automatically to any table/sequence created later,
 -- so future migrations don't reintroduce the 42501 gap.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT SELECT ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT USAGE, SELECT ON SEQUENCES TO anon, authenticated;
+  GRANT USAGE, SELECT ON SEQUENCES TO authenticated;
 
 -- ============================================================================
--- Verify: anon should now be able to read deals (count), and a signed-out
--- createClient() query in the app should stop returning 42501.
+-- Verify: a signed-in query (e.g. count of deals) succeeds and stops returning
+-- 42501. A signed-out (anon) query should now fail — that is intended.
 -- ============================================================================

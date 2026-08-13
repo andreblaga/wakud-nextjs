@@ -9,7 +9,7 @@ This is the working roadmap for building WakudOS out from the current first-pass
 - **DB types:** generate once Supabase is connected — `npx supabase gen types typescript --project-id <id> > lib/supabase/types.ts` — and type `createClient<Database>()`.
 - **Schema is fixed** in `supabase/setup.sql` (23 tables). Don't redefine tables in code; if a schema change is needed, add a new migration SQL file under `supabase/` and note it in `project.md`.
 - **Reuse the design system** in `components/ui.tsx` (`Card`, `StatCard`, `PageHeader`, `StatusBadge`). Replace `PlaceholderPanel` with a real reusable `DataTable`. Keep `lib/nav.ts` as the single nav source.
-- **Roles:** `gm` (full), `operations`, `sales`, `finance`. Reads open to all signed-in users; gate **writes** by role (mirror the RLS intent).
+- **Roles:** `admin` (superuser: + user mgmt & settings), `gm` (full business), `operations`, `sales`, `finance`, `executive_viewer` (read-only). Reads open to all signed-in users; gate **writes** by role via `canWrite`/`RoleGate`, and admin-only areas via `isAdmin` (never `canWrite` — gm is `"*"`). The per-table write matrix lives in `supabase/roles-rls.sql`; keep it and `lib/permissions.ts` in step.
 - **Currency:** USD primary; OMR via the `exchange_rates` peg (0.385). Build one currency helper; don't hardcode the rate in components.
 - After each phase: `npm run build` must pass, and update the relevant checkboxes here + notes in `project.md`.
 
@@ -55,9 +55,10 @@ Replace placeholders with real queries + a reusable `DataTable`. One PR per page
 - [x] **Export to Excel** — client-side via exceljs (`lib/export-excel.ts` + `ExportExcelButton`). Wired into Finance + Deals (Deals respects active filters).
 - **Migrations to run:** `supabase/phase4-tasks.sql`, `supabase/phase4-discussions.sql` (+ enable Realtime).
 
-## Phase 5 — SharePoint sync (blocked on Andre: M365 access + data format)
-- [ ] Confirm source format (Excel files vs Lists) and get M365 app registration (tenant/client/secret).
-- [ ] Server-side job (route handler + scheduled trigger) that reads SharePoint and upserts into Supabase. SharePoint stays the source of truth.
+## Phase 5 — SharePoint sync (design: `docs/sharepoint-integration.md`)
+- [x] M365 app registration — **provisioned 2026-08-13**: `Sites.Selected` read-only, Barka Operations Hub only. Creds in `.env.local` (`MS_*`, `SHAREPOINT_SITE_URL` pre-filled).
+- [ ] **Blocked on team:** confirm canonical source workbooks per data area + that they live in the granted site (format presumed Excel, not Lists). See design doc §6.
+- [ ] Server-side job (route handler + scheduled trigger) — read-only, reads SharePoint and upserts into Supabase (idempotent). SharePoint stays source of truth; **no write-back** (data out = Export-to-Excel).
 - [ ] Sync status/last-run surfaced in the UI.
 
 ## Phase 6 — AI assistant (final)
@@ -68,3 +69,18 @@ Replace placeholders with real queries + a reusable `DataTable`. One PR per page
 ### Suggested split (Cowork ↔ CC)
 - **CC (this repo):** Phases 0–4 build-out.
 - **Cowork/me:** Phase 5 SharePoint sync design + the deal-economics port reference, plus reviews. Adjust as you like — just keep `project.md` and these checkboxes current so we don't collide.
+
+---
+
+## Remaining work / go-live scope (added 2026-08-13)
+
+Full prioritised plan + decisions in [`docs/go-live-plan.md`](./docs/go-live-plan.md). Headline items beyond Phases 5–6:
+
+- [ ] **P0** Verify all 6 migrations ran on the correct project (`ftrtekdiabttvjlfgisy`); set prod env vars in **Vercel** (Supabase + `MS_*` + `SHAREPOINT_SITE_URL`).
+- [x] **P0** RLS hardening — `supabase/roles-rls.sql`: per-role write matrix replaces every `WITH CHECK (true)` policy, self-insert role hole dropped, **all anon read access removed** (it exposed commercial data via the public anon key), documents bucket made private. **Andre: run the migration.**
+- [x] **P1** New **`admin` role above GM** (superuser: users/roles + system settings; GM loses those) + `executive_viewer` read-only role — `lib/permissions.ts` (`isAdmin()`), enforced at the DB too.
+- [x] **P1** User provisioning + Admin screen — `/admin`: list/create users, change roles, deactivate. Roster is in `supabase/assign-roles.sql`; **the eight accounts still need creating** (via `/admin` or Supabase Auth).
+- [ ] **P1** Auth hardening: password reset, email confirmation, session timeout.
+- [ ] **P2** Finance sign-off on deal-economics assumptions.
+- [ ] **P3** PDF export + templates: invoices, ISCC/PoS, finance/forecast reports, per-page snapshot.
+- [ ] **P3** Realtime: live on Deals/Inventory/Production/Alerts; auto-refresh elsewhere (see plan).

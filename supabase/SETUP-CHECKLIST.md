@@ -113,10 +113,18 @@ See `data-templates/README.md` for which columns mean what.
 
 | File | What it does |
 |------|--------------|
-| `setup.sql` | Builds the entire database structure. Run once in SQL Editor. |
+| `setup.sql` | Builds the entire database structure. Run **first**, once, in the SQL Editor. |
+| `grant-privileges.sql` | Table permissions for the API roles — without it every query fails `42501`. |
+| `phase3-audit-log-policy.sql` | Lets the app write change records to the audit log. |
+| `phase4-tasks.sql` | The To-Do board table. |
+| `phase4-discussions.sql` | Chat channels + messages (and turns on Realtime). |
+| `roles-admin-viewer.sql` | Allows the `admin` and `executive_viewer` roles. |
+| `roles-rls.sql` | **Security lock-down.** Per-role write rules, no signed-out access. Run **last**, before real data. |
 | `assign-roles.sql` | Gives your users their roles. Run after creating users. |
 | `SETUP-CHECKLIST.md` | This guide. |
 | `data-templates/` | Blank CSV templates for importing real data. |
+
+Run order: `setup` → `grant-privileges` → `phase3-audit-log-policy` → `phase4-tasks` → `phase4-discussions` → `roles-admin-viewer` → `roles-rls` → `assign-roles`. All are safe to re-run.
 
 ## If something goes wrong
 

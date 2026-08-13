@@ -8,10 +8,10 @@ Things we've deliberately deferred. Pull items from here when their time comes; 
 
 ## Features (sequenced in BUILD-PLAN.md, parked specifics here)
 - [ ] **AI assistant** — Q&A over facility data. Deferred to the final phase, after core data + modules are in.
-- [ ] **SharePoint sync** — blocked on two inputs from Andre: (1) is the live data in Excel files or SharePoint Lists, and (2) Microsoft 365 admin access to register an app. Picks up in BUILD-PLAN Phase 4.
+- [ ] **SharePoint sync** — M365 access provisioned (read-only `Sites.Selected`, Barka Operations Hub). Now blocked only on confirming which workbooks are canonical + that they live in the granted site. Design: `docs/sharepoint-integration.md`; BUILD-PLAN Phase 5.
 
 ## Data / security
-- [ ] **Tighten RLS** — current Supabase policies are permissive (prototype). Lock down by role before real production data.
+- [x] **Tighten RLS** — done 2026-08-13 via `supabase/roles-rls.sql` (per-role write matrix, self-insert role hole closed, anon read access removed). Andre still has to run the migration.
 - [ ] **Auth hardening** — password reset, email confirmation flows, session timeout (after basic login works).
 
 ## Migration / cleanup

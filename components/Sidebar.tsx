@@ -4,9 +4,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS, NAV_SECTIONS } from "@/lib/nav";
+import { useSession } from "@/components/SessionProvider";
+import { isAdmin } from "@/lib/permissions";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const session = useSession();
+  // Admin-only links are hidden from everyone else, GM included. The /admin
+  // page and its server actions enforce this again — this is presentation.
+  const admin = isAdmin(session?.role);
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
@@ -23,7 +29,9 @@ export default function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         {NAV_SECTIONS.map((section) => {
-          const items = NAV_ITEMS.filter((i) => i.section === section);
+          const items = NAV_ITEMS.filter(
+            (i) => i.section === section && (!i.adminOnly || admin),
+          );
           if (items.length === 0) return null;
           return (
             <div key={section} className="mb-5">
