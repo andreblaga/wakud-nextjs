@@ -6,31 +6,16 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader, Card } from "@/components/ui";
 import { SOURCES, BLOCKED_SOURCES, ACTIVE_SOURCES } from "@/lib/sharepoint/sources";
 import RunSyncButton from "./RunSyncButton";
+import type { AreaResult } from "@/lib/sharepoint/sync";
+import type { Database } from "@/lib/supabase/types";
 
 export const dynamic = "force-dynamic";
 
-type AreaResult = {
-  area: string;
-  status: "ok" | "skipped" | "error" | "blocked";
-  read: number;
-  upserted: number;
-  skipped: number;
-  errored: number;
-  note?: string;
-};
-
-type Run = {
-  id: string;
-  status: string;
-  trigger: string;
-  started_at: string;
-  finished_at: string | null;
-  duration_ms: number | null;
+// `areas` is a jsonb column, so the generated type is the opaque `Json`. The
+// sync writes AreaResult[] into it (lib/sharepoint/sync.ts), and this page is
+// the only reader — narrowing it here keeps that contract in one place.
+type Run = Omit<Database["public"]["Tables"]["sync_runs"]["Row"], "areas"> & {
   areas: AreaResult[] | null;
-  rows_read: number;
-  rows_upserted: number;
-  rows_errored: number;
-  error: string | null;
 };
 
 function fmt(iso: string | null) {
@@ -72,12 +57,14 @@ export default async function SyncPage() {
 
   if (supabase) {
     const { data, error } = await supabase
-      .from("sync_runs" as any)
+      .from("sync_runs")
       .select("*")
       .order("started_at", { ascending: false })
       .limit(10);
     if (error) tableMissing = true;
-    else runs = (data ?? []) as unknown as Run[];
+    // Every column but `areas` matches the generated Row exactly; the cast only
+    // narrows that one jsonb column to the shape the sync writes.
+    else runs = (data ?? []) as Run[];
   }
 
   const last = runs[0];

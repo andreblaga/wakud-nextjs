@@ -279,6 +279,12 @@ export type Database = {
           id: string
           mime_type: string | null
           notes: string | null
+          source: string
+          source_folder: string | null
+          source_modified_at: string | null
+          source_path: string | null
+          source_ref: string | null
+          synced_at: string | null
           uploaded_at: string | null
           uploaded_by: string | null
           version: number | null
@@ -293,6 +299,12 @@ export type Database = {
           id?: string
           mime_type?: string | null
           notes?: string | null
+          source?: string
+          source_folder?: string | null
+          source_modified_at?: string | null
+          source_path?: string | null
+          source_ref?: string | null
+          synced_at?: string | null
           uploaded_at?: string | null
           uploaded_by?: string | null
           version?: number | null
@@ -307,6 +319,12 @@ export type Database = {
           id?: string
           mime_type?: string | null
           notes?: string | null
+          source?: string
+          source_folder?: string | null
+          source_modified_at?: string | null
+          source_path?: string | null
+          source_ref?: string | null
+          synced_at?: string | null
           uploaded_at?: string | null
           uploaded_by?: string | null
           version?: number | null
@@ -1074,6 +1092,7 @@ export type Database = {
           product: string
           purchased: number | null
           safety_stock_level: number | null
+          unit: string
         }
         Insert: {
           closing_stock?: number | null
@@ -1086,6 +1105,7 @@ export type Database = {
           product: string
           purchased?: number | null
           safety_stock_level?: number | null
+          unit?: string
         }
         Update: {
           closing_stock?: number | null
@@ -1098,6 +1118,58 @@ export type Database = {
           product?: string
           purchased?: number | null
           safety_stock_level?: number | null
+          unit?: string
+        }
+        Relationships: []
+      }
+      sync_runs: {
+        Row: {
+          areas: Json
+          duration_ms: number | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          rows_errored: number
+          rows_read: number
+          rows_skipped: number
+          rows_upserted: number
+          source: string
+          started_at: string
+          status: string
+          trigger: string
+          triggered_by: string | null
+        }
+        Insert: {
+          areas?: Json
+          duration_ms?: number | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          rows_errored?: number
+          rows_read?: number
+          rows_skipped?: number
+          rows_upserted?: number
+          source?: string
+          started_at?: string
+          status?: string
+          trigger?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          areas?: Json
+          duration_ms?: number | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          rows_errored?: number
+          rows_read?: number
+          rows_skipped?: number
+          rows_upserted?: number
+          source?: string
+          started_at?: string
+          status?: string
+          trigger?: string
+          triggered_by?: string | null
         }
         Relationships: []
       }
@@ -1220,7 +1292,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_any_role: {
+        Args: { _roles: string[]; _user_id: string }
+        Returns: boolean
+      }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

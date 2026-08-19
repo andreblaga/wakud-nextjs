@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Database } from "@/lib/supabase/types";
 import {
   readConfig,
   missingConfigKeys,
@@ -50,21 +51,26 @@ export type SyncResult = {
 
 const CHUNK = 500;
 
+/** Any table in the generated schema — the sync targets several by name. */
+type SyncTable = keyof Database["public"]["Tables"];
+
 async function upsertChunked(
   client: NonNullable<ReturnType<typeof createAdminClient>>,
-  table: string,
+  table: SyncTable,
   rows: Record<string, unknown>[],
   onConflict: string,
 ): Promise<{ upserted: number; errored: number; error?: string }> {
   let upserted = 0;
   for (let i = 0; i < rows.length; i += CHUNK) {
     const slice = rows.slice(i, i + CHUNK);
-    // `table` is a runtime string, so the generated per-table overloads can't
-    // narrow it; the shape is guaranteed by the extractor that produced `rows`.
-    const { error } = await (client.from(table as never) as any).upsert(slice, {
-      onConflict,
-      ignoreDuplicates: false,
-    });
+    // `table` is a union of table names rather than one literal, so `upsert`
+    // resolves its row type to the intersection of every table's Insert shape —
+    // which no single table's rows satisfy. The call is still checked against
+    // the real schema at the `from(table)` boundary; only the row payload needs
+    // the cast, and its shape is guaranteed by the extractor that produced it.
+    const { error } = await client
+      .from(table)
+      .upsert(slice as never, { onConflict, ignoreDuplicates: false });
     if (error) {
       return { upserted, errored: rows.length - upserted, error: error.message };
     }
@@ -108,7 +114,7 @@ export async function runSharePointSync(
 
   // Open the run row first so a crash still leaves a visible "running" record.
   const { data: run } = await service
-    .from("sync_runs" as any)
+    .from("sync_runs")
     .insert({
       source: "sharepoint",
       status: "running",
@@ -117,7 +123,7 @@ export async function runSharePointSync(
     })
     .select("id")
     .single();
-  const runId = (run as { id: string } | null)?.id ?? null;
+  const runId = run?.id ?? null;
 
   let fatal: string | undefined;
 
@@ -237,12 +243,12 @@ export async function runSharePointSync(
 
   if (runId) {
     await service
-      .from("sync_runs" as any)
+      .from("sync_runs")
       .update({
         status,
         finished_at: new Date().toISOString(),
         duration_ms: durationMs,
-        areas: areas as unknown as Record<string, unknown>[],
+        areas,
         rows_read: totals.read,
         rows_upserted: totals.upserted,
         rows_skipped: totals.skipped,
