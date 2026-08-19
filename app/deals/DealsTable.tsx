@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Search, Pencil } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { StatusBadge } from "@/components/ui";
@@ -64,7 +65,10 @@ export default function DealsTable({ deals, canEdit = false }: { deals: DealRow[
   const columns = canEdit ? [...baseColumns, editColumn] : baseColumns;
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
-  const [query, setQuery] = useState("");
+  // Seeded from ?q= so the global search box can land here with its query
+  // already applied; still freely editable afterwards.
+  const searchParams = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();

@@ -10,7 +10,8 @@ import { canWrite } from "@/lib/permissions";
 import TaskCard from "./TaskCard";
 import { TASK_STATUSES, type TaskRow, type TaskStatus } from "./types";
 
-export default function TasksPage() {
+export default function TasksPage({ searchParams }: { searchParams: { q?: string } }) {
+  const q = (searchParams.q ?? "").trim();
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
@@ -25,8 +26,8 @@ export default function TasksPage() {
           </RoleGate>
         }
       />
-      <Suspense fallback={<BoardSkeleton />}>
-        <Board />
+      <Suspense key={q} fallback={<BoardSkeleton />}>
+        <Board query={q} />
       </Suspense>
     </div>
   );
@@ -39,11 +40,15 @@ const COLUMN_TINT: Record<TaskStatus, string> = {
   done: "border-brand-200",
 };
 
-async function Board() {
+async function Board({ query }: { query: string }) {
   const supabase = createClient();
   if (!supabase) return <ErrorState message="Supabase isn't configured." />;
 
-  const { data, error } = await supabase.from("tasks").select("*").order("created_at", { ascending: false });
+  let request = supabase.from("tasks").select("*");
+  // `%` and `_` are LIKE wildcards; escape so a literal search stays literal.
+  if (query) request = request.ilike("title", `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+
+  const { data, error } = await request.order("created_at", { ascending: false });
   if (error) {
     // tasks table may not exist yet (migration not run).
     return <ErrorState message={`${error.message} — has supabase/phase4-tasks.sql been run?`} />;
@@ -63,7 +68,16 @@ async function Board() {
       });
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <>
+      {query && (
+        <p className="mb-3 text-xs text-slate-500">
+          Showing tasks matching <span className="font-medium text-slate-700">“{query}”</span> ({tasks.length}).{" "}
+          <Link href="/tasks" className="text-brand-700 hover:underline">
+            Clear
+          </Link>
+        </p>
+      )}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       {TASK_STATUSES.map((col) => {
         const items = byStatus(col.value);
         return (
@@ -82,7 +96,8 @@ async function Board() {
           </div>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }
 

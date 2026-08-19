@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, LogOut, Loader2 } from "lucide-react";
+import { LogOut, Loader2 } from "lucide-react";
 import { useSession } from "@/components/SessionProvider";
 import NotificationsBell from "@/components/NotificationsBell";
+import GlobalSearch from "@/components/GlobalSearch";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_LABELS } from "@/lib/permissions";
 
@@ -33,10 +34,7 @@ export default function TopBar() {
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-6">
-      <div className="flex max-w-md flex-1 items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-400">
-        <Search className="h-4 w-4" />
-        <span>Search deals, contracts, batches…</span>
-      </div>
+      <GlobalSearch />
       <div className="flex items-center gap-3">
         <NotificationsBell />
 
