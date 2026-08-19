@@ -1,0 +1,11 @@
+# Normalise line endings: LF in the repo, native in the working tree.
+# Added 2026-08-19 to stop CRLF/LF churn showing up as thousands of phantom diffs.
+* text=auto eol=lf
+
+# Binary — never touch these.
+*.png binary
+*.ico binary
+*.jpg binary
+*.pdf binary
+*.xlsx binary
+*.xlsm binary
