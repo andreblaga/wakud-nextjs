@@ -10,6 +10,7 @@ import { getSessionUser } from "@/lib/auth";
 import { canWrite } from "@/lib/permissions";
 import { formatNumber } from "@/lib/currency";
 import { monthLabel, formatDate } from "@/lib/dates";
+import { DEFAULT_STOCK_UNIT, unitLabel } from "@/lib/units";
 
 export default function InventoryPage() {
   return (
@@ -49,6 +50,7 @@ type StockRow = {
   closing_stock: number | null;
   safety_stock_level: number | null;
   is_below_safety: boolean | null;
+  unit: string;
 };
 type OrderRow = {
   id: string;
@@ -62,9 +64,26 @@ type OrderRow = {
   auto_generated: boolean | null;
 };
 
+/**
+ * Whether the stored below-safety flag can be trusted for this row.
+ *
+ * is_below_safety is computed on save against a safety level in tonnes. The
+ * SharePoint sync replaces a row's figures and unit without touching either, so
+ * on a non-tonnes row the flag is a stale tonnes-based comparison. Showing it
+ * would be a wrong warning; lib/reorder.ts raises a units-differ alert instead.
+ */
+function belowSafetyIsMeaningful(s: StockRow): boolean {
+  return !!s.is_below_safety && s.unit === DEFAULT_STOCK_UNIT;
+}
+
 const stockColumns: Column<StockRow>[] = [
   { key: "product", header: "Product", render: (s) => <span className="font-medium text-slate-900">{s.product}</span> },
   { key: "month", header: "Month", render: (s) => monthLabel(s.month, true) },
+  {
+    key: "unit",
+    header: "Unit",
+    render: (s) => <span className="text-xs text-slate-500">{unitLabel(s.unit)}</span>,
+  },
   { key: "opening_stock", header: "Opening", align: "right", render: (s) => formatNumber(s.opening_stock) },
   { key: "produced", header: "Produced", align: "right", render: (s) => formatNumber(s.produced) },
   { key: "purchased", header: "Purchased", align: "right", render: (s) => formatNumber(s.purchased) },
@@ -74,9 +93,9 @@ const stockColumns: Column<StockRow>[] = [
     header: "Closing",
     align: "right",
     render: (s) => (
-      <span className={s.is_below_safety ? "font-medium text-accent-600" : ""}>
+      <span className={belowSafetyIsMeaningful(s) ? "font-medium text-accent-600" : ""}>
         {formatNumber(s.closing_stock)}
-        {s.is_below_safety && <AlertTriangle className="ml-1 inline h-3.5 w-3.5" />}
+        {belowSafetyIsMeaningful(s) && <AlertTriangle className="ml-1 inline h-3.5 w-3.5" />}
       </span>
     ),
   },
@@ -107,7 +126,7 @@ async function InventoryContent() {
   const [stockRes, ordersRes] = await Promise.all([
     supabase
       .from("stock_levels")
-      .select("id, product, month, opening_stock, produced, purchased, delivered, closing_stock, safety_stock_level, is_below_safety")
+      .select("id, product, month, opening_stock, produced, purchased, delivered, closing_stock, safety_stock_level, is_below_safety, unit")
       .order("month", { ascending: false }),
     supabase
       .from("raw_material_orders")
@@ -145,18 +164,28 @@ async function InventoryContent() {
   for (const s of stock) {
     if (!latestByProduct.has(s.product)) latestByProduct.set(s.product, s); // stock is month-desc
   }
-  const ucoStock = latestByProduct.get("UCO")?.closing_stock ?? null;
-  const b100Stock = latestByProduct.get("B100")?.closing_stock ?? null;
-  const belowSafety = Array.from(latestByProduct.values()).filter((s) => s.is_below_safety);
+  const ucoRow = latestByProduct.get("UCO");
+  const b100Row = latestByProduct.get("B100");
+  const ucoStock = ucoRow?.closing_stock ?? null;
+  const b100Stock = b100Row?.closing_stock ?? null;
+  const belowSafety = Array.from(latestByProduct.values()).filter(belowSafetyIsMeaningful);
+  // Latest rows whose unit rules out a safety comparison — counted separately so
+  // they are visible rather than silently absent from "Below safety".
+  const uncheckedUnits = Array.from(latestByProduct.values()).filter((s) => s.unit !== DEFAULT_STOCK_UNIT);
   const openOrders = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled").length;
 
   return (
     <>
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="UCO stock (latest)" value={formatNumber(ucoStock)} unit="t" />
-        <StatCard label="B100 stock (latest)" value={formatNumber(b100Stock)} unit="t" />
+        <StatCard label="UCO stock (latest)" value={formatNumber(ucoStock)} unit={ucoRow ? unitLabel(ucoRow.unit) : undefined} />
+        <StatCard label="B100 stock (latest)" value={formatNumber(b100Stock)} unit={b100Row ? unitLabel(b100Row.unit) : undefined} />
         <StatCard label="Open material orders" value={formatNumber(openOrders)} />
-        <StatCard label="Below safety" value={formatNumber(belowSafety.length)} accent hint="products need reorder" />
+        <StatCard
+          label="Below safety"
+          value={formatNumber(belowSafety.length)}
+          accent
+          hint={uncheckedUnits.length > 0 ? `${uncheckedUnits.length} not checked — units differ` : "products need reorder"}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -188,13 +217,21 @@ async function InventoryContent() {
                   <li key={s.id} className="flex items-center justify-between">
                     <span className="text-slate-700">{s.product}</span>
                     <span className="text-xs text-accent-600">
-                      {formatNumber(s.closing_stock)} t · safety {formatNumber(s.safety_stock_level)} t
+                      {formatNumber(s.closing_stock)} {unitLabel(s.unit)} · safety {formatNumber(s.safety_stock_level)} {unitLabel(s.unit)}
                     </span>
                   </li>
                 ))}
               </ul>
             ) : (
               <p className="text-xs text-slate-400">No products below their safety level.</p>
+            )}
+            {uncheckedUnits.length > 0 && (
+              <p className="mt-2 text-xs text-amber-700">
+                Not checked — stock is recorded in a different unit from the safety level (which is in{" "}
+                {unitLabel(DEFAULT_STOCK_UNIT)}):{" "}
+                {uncheckedUnits.map((s) => `${s.product} (${unitLabel(s.unit)})`).join(", ")}. Converting needs a
+                confirmed density per material, so no comparison was made.
+              </p>
             )}
             <RoleGate domain="inventory">
               <ReorderButton />

@@ -23,6 +23,7 @@ const DAY = 86_400_000;
  * cron or a pre-populated table, so it can't go stale:
  *   - upcoming/overdue raw-material orders (next 14 days)
  *   - low stock (reuses detectReorderFlags from lib/reorder.ts)
+ *   - stock whose unit differs from its safety level, which blocks that check
  *   - deals created in the last 7 days
  *   - any unresolved system_alerts (explicitly raised)
  * De-duped (a live low-stock item supersedes its raised reorder alert), sorted
@@ -39,7 +40,7 @@ export async function getNotifications(
   const in14 = new Date(now + 14 * DAY).toISOString().slice(0, 10);
   const since7 = new Date(now - 7 * DAY).toISOString();
 
-  const [flags, ordersRes, dealsRes, alertsRes] = await Promise.all([
+  const [{ flags, mismatches }, ordersRes, dealsRes, alertsRes] = await Promise.all([
     detectReorderFlags(supabase),
     supabase
       .from("raw_material_orders")
@@ -111,6 +112,22 @@ export async function getNotifications(
     });
   }
 
+  // 2b. Stock whose unit differs from its safety level — no low-stock judgement
+  // was possible, so say that rather than staying silent about the product.
+  for (const m of mismatches) {
+    push({
+      id: `stock-units-${m.product}`,
+      type: "stock",
+      severity: "warning",
+      title: `Units differ: ${m.product}`,
+      detail: `${m.product} ${m.basis} — no below-safety check ran`,
+      href: "/inventory",
+      date: null,
+      dedupeKey: `stock:${m.product}`,
+      urgencyScore: 0,
+    });
+  }
+
   // 3. New deals (last 7 days)
   for (const d of deals) {
     const ageDays = d.created_at ? (now - new Date(d.created_at).getTime()) / DAY : 7;
@@ -131,9 +148,10 @@ export async function getNotifications(
   for (const a of alerts) {
     const severity: NotificationSeverity =
       a.severity === "critical" ? "critical" : a.severity === "info" ? "info" : "warning";
-    // A reorder alert for a product collides with the live low-stock item above.
+    // A reorder or unit_mismatch alert for a product collides with the live
+    // low-stock / units-differ item above; the live one wins.
     const dedupeKey =
-      a.alert_type === "reorder" && a.related_entity_id
+      (a.alert_type === "reorder" || a.alert_type === "unit_mismatch") && a.related_entity_id
         ? `stock:${a.related_entity_id}`
         : `alert:${a.id}`;
     const ageDays = a.created_at ? (now - new Date(a.created_at).getTime()) / DAY : 0;

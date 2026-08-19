@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { STOCK_UNITS, DEFAULT_STOCK_UNIT } from "@/lib/units";
 
 /**
  * Zod schemas for every create/edit form. Forms submit FormData (all strings),
@@ -79,6 +80,9 @@ export const stockLevelSchema = z.object({
   purchased: optNum,
   delivered: optNum,
   safety_stock_level: optNum,
+  // Figures are stored in the unit they were entered in — nothing converts, so
+  // the row has to say which unit it means. Defaults to the DB default.
+  unit: z.enum(STOCK_UNITS).default(DEFAULT_STOCK_UNIT),
 });
 export type StockLevelInput = z.infer<typeof stockLevelSchema>;
 

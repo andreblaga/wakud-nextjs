@@ -16,7 +16,7 @@ export default async function EditStockPage({ params }: { params: { id: string }
 
   const { data } = await supabase
     .from("stock_levels")
-    .select("id, product, month, opening_stock, produced, purchased, delivered, safety_stock_level")
+    .select("id, product, month, opening_stock, produced, purchased, delivered, safety_stock_level, unit")
     .eq("id", params.id)
     .maybeSingle();
 

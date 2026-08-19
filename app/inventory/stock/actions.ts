@@ -29,7 +29,10 @@ function toRow(s: StockLevelInput): StockInsert {
     delivered,
     closing_stock: closing,
     safety_stock_level: safety,
+    // Both numbers come from this form, so they are in the unit it just
+    // declared — the comparison is within one unit by construction.
     is_below_safety: closing < safety,
+    unit: s.unit,
   };
 }
 
