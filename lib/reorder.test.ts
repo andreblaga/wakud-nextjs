@@ -23,7 +23,7 @@ type StockFixture = {
   safety_stock_unit: string | null;
   unit: string | null;
 };
-type PlanFixture = { month: string; uco_consumed: number | null };
+type PlanFixture = { month: string; uco_consumed: number | null; unit?: string | null };
 type OrderFixture = { material: string; lead_time_days: number | null; status: string };
 
 type Fixtures = {
@@ -172,6 +172,50 @@ describe("detectReorderFlags — the forward-looking projection", () => {
     expect(flags).toEqual([]);
     expect(mismatches).toHaveLength(1);
     expect(mismatches[0]).toMatchObject({ kind: "projection", stockUnit: "KL", comparedUnit: "tonnes" });
+  });
+
+  // production_plan carries its own unit: rows a person enters default to
+  // tonnes, rows derived from the inventory workbook are KL. Stock being in
+  // tonnes is not on its own a licence to subtract the plan's figure.
+  it("withholds the projection when the plan is in KL and stock is in tonnes", async () => {
+    const { flags, mismatches } = await detectReorderFlags(
+      stubClient({
+        stock_levels: [row({ closing_stock: 500, unit: "tonnes", safety_stock_unit: "tonnes" })],
+        production_plan: [{ month: "2026-09-01", uco_consumed: 490, unit: "KL" }],
+      }),
+    );
+
+    // Subtracting 490 KL from 500 t would project 10 and flag; it must not.
+    expect(flags).toEqual([]);
+    expect(mismatches).toHaveLength(1);
+    expect(mismatches[0]).toMatchObject({ kind: "projection", stockUnit: "tonnes", comparedUnit: "KL" });
+    expect(mismatches[0].basis).toBe("stock is in tonnes but planned consumption is in KL");
+  });
+
+  it("applies the projection when stock and plan are both KL", async () => {
+    const { flags, mismatches } = await detectReorderFlags(
+      stubClient({
+        stock_levels: [row({ closing_stock: 500, unit: "KL", safety_stock_unit: "KL" })],
+        production_plan: [{ month: "2026-09-01", uco_consumed: 490, unit: "KL" }],
+      }),
+    );
+
+    expect(mismatches).toEqual([]);
+    expect(flags).toHaveLength(1);
+    expect(flags[0].projected).toBe(10);
+  });
+
+  it("treats a plan with no unit as tonnes", async () => {
+    const { flags, mismatches } = await detectReorderFlags(
+      stubClient({
+        stock_levels: [row({ closing_stock: 500, unit: "tonnes", safety_stock_unit: "tonnes" })],
+        production_plan: [{ month: "2026-09-01", uco_consumed: 490, unit: null }],
+      }),
+    );
+
+    expect(mismatches).toEqual([]);
+    expect(flags).toHaveLength(1);
+    expect(flags[0].projected).toBe(10);
   });
 
   it("applies the projection when stock is in the plan's unit", async () => {

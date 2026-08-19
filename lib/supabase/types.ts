@@ -857,10 +857,13 @@ export type Database = {
           id: string
           month: string
           notes: string | null
+          source: string
           status: string | null
-          target_output: number
+          target_output: number | null
           uco_consumed: number | null
+          unit: string
           updated_at: string | null
+          wastage: number | null
         }
         Insert: {
           actual_output?: number | null
@@ -869,10 +872,13 @@ export type Database = {
           id?: string
           month: string
           notes?: string | null
+          source?: string
           status?: string | null
-          target_output: number
+          target_output?: number | null
           uco_consumed?: number | null
+          unit?: string
           updated_at?: string | null
+          wastage?: number | null
         }
         Update: {
           actual_output?: number | null
@@ -881,10 +887,13 @@ export type Database = {
           id?: string
           month?: string
           notes?: string | null
+          source?: string
           status?: string | null
-          target_output?: number
+          target_output?: number | null
           uco_consumed?: number | null
+          unit?: string
           updated_at?: string | null
+          wastage?: number | null
         }
         Relationships: []
       }

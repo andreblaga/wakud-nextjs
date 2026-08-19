@@ -108,18 +108,21 @@ export const SOURCES: Source[] = [
   },
   {
     key: "production_plan",
-    label: "Production plan & actuals",
-    path: "05_Supply_Chain_and_Logistics/Lists/Sales-Production MAHER.xlsx",
-    targetTables: ["production_plan", "production_actuals"],
-    status: "blocked",
-    blocked:
-      "The file is empty — a single sheet with a used range of A1:A1. The 12 KB is " +
-      "formatting only. (Two older copies exist under 01_Operations_and_Production/" +
-      "Legacy_Archive but are equally unusable as a live feed.)",
-    question:
-      "Where is monthly production output actually recorded now? Daily B100 and glycerol " +
-      "production do exist in the inventory workbook — should production_plan be derived " +
-      "from that instead of a separate file?",
+    label: "Production — monthly output",
+    // NOTE: deliberately the inventory workbook, not the nominated production file.
+    // 05_Supply_Chain_and_Logistics/Lists/Sales-Production MAHER.xlsx is EMPTY
+    // (a single sheet, used range A1:A1), so production is derived from the daily
+    // series that already exists here. Same file as the stock source.
+    path: "05_Supply_Chain_and_Logistics/Inventory_Records/2026/Material Inventory Jan 26 -Dec 26.xlsx",
+    targetTables: ["production_plan"],
+    status: "active",
+    notes:
+      "Derived from the inventory workbook's daily series — B100 produced and wastage, " +
+      "glycerol produced, UCO consumed — because the nominated production file " +
+      "(Sales-Production MAHER.xlsx) is empty. Only months with recorded activity are " +
+      "written; no target is invented; months already entered by a person are never " +
+      "overwritten. Figures are KL. Still worth confirming with the team that this is " +
+      "the real production record.",
   },
   {
     key: "iscc_mass_balance",

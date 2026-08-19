@@ -43,14 +43,6 @@ export type UnitMismatch = {
 
 export type ReorderDetection = { flags: ReorderFlag[]; mismatches: UnitMismatch[] };
 
-/**
- * The unit production_plan is denominated in.
- *
- * production_plan has no unit column — uco_consumed is tonnes throughout. It is
- * subtracted from closing stock for the forward-looking check, so that
- * subtraction is only meaningful when the stock figures are in tonnes too.
- */
-const PLAN_UNIT: string = DEFAULT_STOCK_UNIT;
 
 /**
  * Pure detection: which products are below safety, or projected below after the
@@ -71,12 +63,12 @@ export async function detectReorderFlags(supabase: ServerSupabaseClient): Promis
 
   const [stockRes, planRes, orderRes] = await Promise.all([
     supabase.from("stock_levels").select("product, month, closing_stock, safety_stock_level, safety_stock_unit, unit").order("month", { ascending: false }),
-    supabase.from("production_plan").select("month, uco_consumed").gte("month", month).order("month", { ascending: true }),
+    supabase.from("production_plan").select("month, uco_consumed, unit").gte("month", month).order("month", { ascending: true }),
     supabase.from("raw_material_orders").select("material, lead_time_days, status").in("status", ["pending", "ordered"]),
   ]);
 
   const stock = (stockRes.data ?? []) as { product: string; month: string; closing_stock: number | null; safety_stock_level: number | null; safety_stock_unit: string | null; unit: string | null }[];
-  const plans = (planRes.data ?? []) as { month: string; uco_consumed: number | null }[];
+  const plans = (planRes.data ?? []) as { month: string; uco_consumed: number | null; unit: string | null }[];
   const orders = (orderRes.data ?? []) as { material: string; lead_time_days: number | null }[];
 
   // Latest stock row per product (rows are month-descending).
@@ -94,9 +86,12 @@ export async function detectReorderFlags(supabase: ServerSupabaseClient): Promis
     }
   }
 
-  // Next planned month's UCO consumption (forward-looking shortfall for UCO), in
-  // PLAN_UNIT. Only subtracted from stock that is in the same unit.
+  // Next planned month's UCO consumption (forward-looking shortfall for UCO).
+  // production_plan carries its own unit: rows a person entered default to
+  // tonnes, rows the sync derives from the inventory workbook are KL. Read it
+  // rather than assuming, and only subtract from stock in the same unit.
   const nextUcoConsumption = plans.length ? Number(plans[0].uco_consumed) || 0 : 0;
+  const planUnit = (plans.length ? plans[0].unit : null) || DEFAULT_STOCK_UNIT;
 
   // Shortest open-order lead time per material.
   const leadByMaterial = new Map<string, number>();
@@ -128,19 +123,19 @@ export async function detectReorderFlags(supabase: ServerSupabaseClient): Promis
       continue;
     }
 
-    // The forward-looking check subtracts a production_plan figure, which is in
-    // PLAN_UNIT. Matching stock and safety units does not make that subtraction
-    // valid, so it is guarded separately — the direct comparison below still
-    // runs, and only the projection is withheld.
+    // The forward-looking check subtracts a production_plan figure. Matching
+    // stock and safety units does not make that subtraction valid — the plan has
+    // a unit of its own — so it is guarded separately. The direct comparison
+    // below still runs; only the projection is withheld.
     const wantsConsumption = product.toUpperCase() === "UCO" && nextUcoConsumption > 0;
-    const canProject = unit === PLAN_UNIT;
+    const canProject = unit === planUnit;
     if (wantsConsumption && !canProject) {
       mismatches.push({
         product,
         kind: "projection",
         stockUnit: unit,
-        comparedUnit: PLAN_UNIT,
-        basis: `stock is in ${unit} but planned consumption is in ${PLAN_UNIT}`,
+        comparedUnit: planUnit,
+        basis: `stock is in ${unit} but planned consumption is in ${planUnit}`,
       });
     }
 

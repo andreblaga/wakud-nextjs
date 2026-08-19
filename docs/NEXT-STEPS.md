@@ -6,6 +6,27 @@ Where a step needs Claude Code, the prompt is in a fenced block — paste it ver
 
 ---
 
+## STATUS — updated 2026-08-19
+
+**Steps 0 – 5 are DONE. The sync is live and carrying real data.**
+
+| Step | State |
+|---|---|
+| 0 · Line endings | ✅ `27cb78b` — churn gone; placing `.gitattributes` was enough, no renormalize needed |
+| 1 · Commit Phase 5 | ✅ `897388e`, pushed |
+| 2 · Migration | ✅ run + verified, including a functional double-upsert test of the ON CONFLICT target |
+| 3 · Regenerate types | ✅ `8bec02d` |
+| 3c · Units on Inventory | ✅ `c96b113` — `lib/units.ts`, unit-aware reorder |
+| 3d · `safety_stock_unit` + tests | ✅ `197e964` — Vitest, 16 tests, mutation-checked |
+| 4 · Vercel env vars | ✅ all seven present (five Production-only by design — secrets deliberately kept out of Preview) |
+| 5 · Run the sync | ✅ **three successful runs**, two local + one from production |
+
+**First sync results, verified against the database:** 8,186 documents across all 16 top-level folders (5.8 GB, bytes stay in SharePoint) · 108 `stock_levels` rows, 9 products × 12 months, 96 KL + 12 Kg · 0 errors · **0 duplicates after three runs** · every row rewritten in place by the latest run · B100 reconciles to the source workbook to the decimal.
+
+**Remaining: Steps 6 – 11 below.** The two that unblock the most are Step 6 (the team's source questions) and Step 9 (the Documents page — 8,186 rows that no screen reads yet).
+
+---
+
 ## Step 0 — Commit `.gitattributes` · [Andre] · 2 min
 
 **Do this first.** The working tree was showing 28 modified files with 2,546 insertions and 2,546 deletions and not one real change — CRLF/LF churn from Windows tooling. If that gets committed on top of real work, the diff is unreviewable and stays that way in the history.
@@ -81,28 +102,169 @@ If the third query returns nothing, stop and tell me — the document index cann
 
 ---
 
-## Step 3 — Regenerate the typed client · [CC] · 2 min
+## Step 3 — Regenerate the typed client · [Andre + CC] · 5 min
+
+### 3a. Authenticate the Supabase CLI first · [Andre]
+
+`supabase gen types --project-id` talks to the **Management API**, which needs a personal access token. The anon and service-role keys in `.env.local` are a different credential and will not work here.
+
+Run this in **your own PowerShell**, not through Claude Code — it opens a browser and needs to hand the token back to an interactive session:
+
+```powershell
+npx supabase login
+npx supabase projects list     # should list wakud-nextjs / ftrtekdiabttvjlfgisy
+```
+
+The token is stored under `~/.supabase` and persists, so this is a one-time step.
+
+> **Never paste a Supabase personal access token into a chat, a prompt, or a commit.** It is account-wide Management API access — strictly more powerful than the service-role key. `supabase login` keeps it on disk locally, which is what you want. If one ever leaks, revoke it at https://supabase.com/dashboard/account/tokens.
+
+### 3b. Regenerate and clean up · [CC]
+
+⚠️ **Do not use `> lib/supabase/types.ts`.** The CLI writes its *errors* to stdout, so a failed run redirected that way silently replaces your types file with a one-line JSON error blob. Always generate to a temp file, verify it looks like TypeScript, then move it. (Claude Code caught this on 2026-08-19 before any damage was done.)
 
 ```
-Run: npx supabase gen types typescript --project-id ftrtekdiabttvjlfgisy > lib/supabase/types.ts
+Regenerate the Supabase types for WakudOS, then remove the temporary casts that
+exist only because the schema is ahead of the types.
 
-Then:
-1. Confirm the regenerated file contains a `sync_runs` table, a `source_ref`
-   column on `documents`, and a `unit` column on `stock_levels`.
-2. Now that sync_runs is typed, remove the temporary `as any` / `as never` casts
-   in lib/sharepoint/sync.ts — there are three: two `.from("sync_runs" as any)`
-   calls and the `client.from(table as never) as any` inside upsertChunked. Keep
-   upsertChunked generic over a runtime table name; if a cast is still genuinely
-   needed there, narrow it to the table-name union rather than `never` and say so
-   in the comment.
-3. Also remove the `as any` on `.from("sync_runs" as any)` in app/sync/page.tsx.
-4. Run `npx tsc --noEmit` then `npm run build`. Both must pass.
-5. Commit as "chore: regenerate Supabase types for phase 5; drop sync_runs casts".
+1. Generate to a temp file, never straight over types.ts — the CLI writes errors
+   to stdout, so a failed run would overwrite the file with an error blob:
+
+     npx supabase gen types typescript --project-id ftrtekdiabttvjlfgisy > types.new.ts
+
+   Then check types.new.ts actually starts with TypeScript (an `export type Json`
+   or `export type Database` declaration) and is more than a few hundred bytes.
+   Only if it does, replace lib/supabase/types.ts with it and delete the temp file.
+   If it contains an error payload instead, stop and report it.
+
+2. Confirm the regenerated file contains: a `sync_runs` table; `source`,
+   `source_ref`, `source_path`, `source_folder`, `source_modified_at` and
+   `synced_at` on `documents`; and `unit` on `stock_levels`. If any are missing,
+   stop rather than proceeding.
+
+3. Remove the now-unnecessary casts:
+   - lib/sharepoint/sync.ts — the two `.from("sync_runs" as any)` calls (the insert
+     that opens the run and the update that closes it), and the
+     `client.from(table as never) as any` in upsertChunked. That helper takes a
+     runtime table name, so it may still need a cast — if so narrow it to the
+     generated table-name union rather than `never`, and update the comment.
+   - app/sync/page.tsx — the `.from("sync_runs" as any)` in the run-history query;
+     the hand-written `Run` and `AreaResult` types can now derive from Database.
+
+4. Regenerating may surface NEW type errors, most likely from stock_levels gaining
+   `unit`. Fix them properly — no `as any`, no `@ts-ignore`. If a fix needs a
+   product decision rather than a code change, stop and say what the decision is.
+
+5. Run `npx tsc --noEmit` then `npm run build`. Both must pass.
+
+6. Commit as: "chore: regenerate Supabase types for phase 5; drop sync_runs casts"
 
 Do NOT run `npm audit fix --force` — it breaks the next@14.2.35 pin.
 ```
 
----
+## Step 3c — Make the Inventory page unit-aware · [CC] · 30 min
+
+**Decision taken 2026-08-19 (Andre): display each row's real unit. Do not convert.**
+
+Converting KL to tonnes needs a confirmed density per material, and nobody has confirmed one. A converted figure looks authoritative while resting on a textbook guess; a figure labelled KL is simply true. Conversion can be layered on later without undoing this.
+
+Must land **before** Step 5, because Step 5 is what first puts KL into `stock_levels`.
+
+```
+The stock_levels table now has a `unit` column (values: 'tonnes', 'KL', 'Kg').
+Rows written by the SharePoint sync carry the source workbook's unit — the Barka
+inventory workbook records everything in KL except the antioxidant, which is Kg —
+while the Inventory page currently hardcodes tonnes.
+
+Decision from Andre: DISPLAY each row's real unit. Do NOT convert to tonnes.
+Converting needs a confirmed density per material and none is confirmed; a
+converted number would look authoritative while resting on a guess.
+
+1. app/inventory/page.tsx — add `unit` to the stock_levels select, and replace the
+   hardcoded unit="t" on the UCO and B100 KPI cards (around lines 156-157) with the
+   unit from the row the card is built from. Show the unit in the stock table too.
+
+2. Cross-product aggregates. If any figure sums or compares across products, it is
+   now summing mixed units and is meaningless. Either scope each aggregate to a
+   single unit, or drop it. Do not silently sum KL and Kg. If you find one, say
+   which and what you did.
+
+3. lib/reorder.ts — this is the part that matters most. detectReorderFlags compares
+   closing_stock against safety_stock_level. Those are two numbers that may now be
+   in different units: synced rows are KL, a hand-entered safety level defaults to
+   tonnes. Make the comparison unit-aware: only compare when the units match, and
+   when they don't, do NOT raise a below-safety alert — surface a distinct warning
+   naming the product and the two units instead. A wrong reorder alert is worse
+   than a missing one.
+
+4. lib/schemas.ts + app/inventory/stock/StockForm.tsx — add `unit` to the create/edit
+   form as a select of tonnes / KL / Kg, defaulting to tonnes (matching the DB
+   default), so hand-entered rows declare their unit rather than implying one.
+
+5. Anywhere else that renders a stock number — check app/page.tsx (dashboard) and
+   lib/notifications.ts, since the low-stock notification reuses detectReorderFlags.
+
+Run `npx tsc --noEmit` and `npm run build`; both must pass. Commit as
+"Inventory: display stock units instead of assuming tonnes; make reorder unit-aware".
+
+Do NOT run `npm audit fix --force` — it breaks the next@14.2.35 pin.
+```
+
+Once densities are confirmed with the team, converting becomes a display-layer change on top of this, not a rewrite.
+
+## Step 3d — Make the safety level self-describing, and keep the tests · [Andre + CC] · 30 min
+
+Two things surfaced by Step 3c, both cheapest to fix **before** the first sync run writes 108 rows.
+
+**Schema decision (2026-08-19):** add `stock_levels.safety_stock_unit`, not a row-level `source` column. `unit` describes the measurement columns; `safety_stock_level` is a different quantity and needs its own unit — because the sync upserts on `(product, month)`, overwriting the figures and `unit` but never the safety level. A row a person created in tonnes becomes, after a sync, a hybrid: KL figures from the workbook, a tonnes safety level from the human. Row-level provenance cannot describe a row whose two halves have different provenance. A unit belonging to the safety level can.
+
+**Second issue:** `setup.sql` declared `safety_stock_level DECIMAL DEFAULT 20`. The sync never writes that column, so every synced row would silently claim a safety level of 20 nobody chose — and once units line up, reorder alerts would fire against a fabricated number. The column is nullable and the table is currently empty, so dropping the default costs nothing today and is a cleanup job after Step 5.
+
+### 3d-i · [Andre] — run the migration
+
+SQL Editor → paste `supabase/phase5b-stock-safety-unit.sql` → Run. Verification query is in the file's footer.
+
+### 3d-ii · [CC] — wire it, and promote the throwaway tests
+
+```
+Two follow-ups to the units work in c96b113.
+
+A. safety_stock_unit
+I've added supabase/phase5b-stock-safety-unit.sql and Andre has run it. It adds
+stock_levels.safety_stock_unit (TEXT NOT NULL DEFAULT 'tonnes') and drops the
+DEFAULT 20 on safety_stock_level so NULL now means "no threshold set".
+
+1. Regenerate types (temp file first, verify it's real TypeScript, then move —
+   the CLI writes errors to stdout).
+2. lib/reorder.ts — replace the SAFETY_UNIT = tonnes assumption with the row's
+   actual safety_stock_unit. The comparison stays unit-aware; it just now reads a
+   real column instead of assuming. Keep the UnitMismatch path for rows where the
+   two units genuinely differ.
+3. Treat safety_stock_level IS NULL as "no threshold set": never below-safety,
+   never a unit mismatch, no alert. NULL is not zero.
+4. lib/schemas.ts + StockForm — expose safety_stock_unit alongside the existing
+   unit select, and let safety_stock_level be left empty rather than forced.
+   Make sure the EDIT page fetches both new fields — the same class of bug you
+   caught where the edit select didn't fetch `unit` and would silently rewrite a
+   synced KL row to tonnes.
+5. app/inventory/page.tsx — where a safety level is shown, show its unit too.
+
+B. Keep the tests
+You verified reorder.ts with 7 checks compiled out-of-tree into a scratchpad, and
+said they live outside the repo. That's the most valuable test coverage this
+project has and it's about to be thrown away. Promote it:
+
+6. Add Vitest (dev dependency, `npm test` script, minimal config — no Playwright).
+7. Port those 7 checks into lib/reorder.test.ts as real tests, including the one
+   that matters: 5 KL against a 20 t safety level must raise no alert and must
+   report the mismatch.
+8. Add the NULL-threshold cases from A3 while you're in there.
+
+Run npm test, npx tsc --noEmit and npm run build; all three must pass. Commit as
+"Stock: safety level carries its own unit; NULL means unset; add Vitest + reorder tests".
+
+Do NOT run `npm audit fix --force` — it breaks the next@14.2.35 pin.
+```
 
 ## Step 4 — Set the production env vars in Vercel · [Andre] · 5 min
 
@@ -171,7 +333,13 @@ Specific questions, in the order I'd ask them:
 
 1. **Production** — `Sales-Production MAHER.xlsx` is empty. Where is monthly output recorded now? *(Cheapest fix on the list: daily B100 and glycerol output already exist in the inventory workbook, so `production_plan` could be derived from that and need no new file at all.)*
 2. **Inventory dates** — the BIODIESEL summary block is headed "July / August / Sept" but reports exactly the figures that sit in the **Jan / Feb / Mar 2026** daily rows. Which is right? Until this is answered nobody should read the Inventory page as 2026 truth.
-3. **Stock units** — everything is in KL (antioxidant in Kg). Convert to tonnes with agreed densities per material, or display KL?
+3. **Stock unit conversion factor** — the inventory workbook records everything in KL (antioxidant in Kg). *(The display decision is already made: the app shows the real unit rather than converting — see Step 3c. This question is about unlocking optional conversion later.)*
+
+   Don't ask for densities in the abstract — **ask whoever maintains the ISCC mass balance.** `11_ESG_and_Sustainability/ISCC/2025 - CoC/ongoing Summary mass - 25.xlsx` states *"Unit: MT"*, while the inventory workbook is in KL. So somebody at Wakud is already converting between the two, and that factor is the one that has to match for the ISCC audit to reconcile. Ask them:
+   - What factor do you use to go from KL to MT, per material?
+   - Is it quoted at standard conditions? EN 14214 specifies biodiesel density at 15 °C, and mass balance has to use standard conditions or the audit trail won't reconcile.
+
+   A textbook density would be a guess. Theirs is the number that already has to be right.
 4. **Contracts** — is `Ultimate_Biodiesel_Sales_Tracker.xlsx` meant to be filled in, or do signed terms live only in the Word offtake agreements?
 5. **Deals** — is there a trade pipeline anywhere, or are deals only ever created in the app? *"They're app-native" is a perfectly good answer and stops the search.*
 6. **Forecast** — which sheet and row range of `20260214-Wakud BioDiesel Model.xlsx` is the agreed monthly forecast, and is it BASE case only?

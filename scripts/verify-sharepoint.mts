@@ -16,6 +16,7 @@
 import { readConfig, resolveSite, listAllItems, downloadFile, itemPath } from "@/lib/sharepoint/graph";
 import { buildDocumentRows } from "@/lib/sharepoint/extractors/documents";
 import { extractStock } from "@/lib/sharepoint/extractors/stock";
+import { extractProduction } from "@/lib/sharepoint/extractors/production";
 import { ACTIVE_SOURCES, BLOCKED_SOURCES } from "@/lib/sharepoint/sources";
 
 const KNOWN_DRIVE_ID =
@@ -67,6 +68,21 @@ for (const source of ACTIVE_SOURCES) {
       "stock_levels UNIQUE(product, month) depends on this",
     );
     console.table(rows.filter((r) => r.product === "B100").slice(0, 3));
+  }
+
+  if (source.key === "production_plan") {
+    const { rows, skipped: monthsSkipped, warnings } = await extractProduction(buffer);
+    check("production derived", rows.length > 0, `${rows.length} month(s) with recorded activity`);
+    check(
+      "month is unique (upsert key)",
+      rows.length === new Set(rows.map((r) => r.month)).size,
+      "production_plan.month is UNIQUE",
+    );
+    check("no target invented", rows.every((r) => r.target_output === null), "the workbook records actuals only");
+    check("months without activity are withheld", monthsSkipped.length > 0, monthsSkipped.join("; "));
+    // Warnings are expected — they describe the SOURCE data, not a code fault.
+    for (const w of warnings) console.log(`warn  ${"source data".padEnd(34)} ${w}`);
+    console.table(rows);
   }
 }
 

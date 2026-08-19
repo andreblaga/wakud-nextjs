@@ -13,6 +13,7 @@ import {
 import { SOURCES, BLOCKED_SOURCES, DOCUMENT_INDEX_LABEL } from "@/lib/sharepoint/sources";
 import { buildDocumentRows } from "@/lib/sharepoint/extractors/documents";
 import { extractStock } from "@/lib/sharepoint/extractors/stock";
+import { extractProduction } from "@/lib/sharepoint/extractors/production";
 
 /**
  * The SharePoint sync.
@@ -180,6 +181,44 @@ export async function runSharePointSync(
         }
 
         const buffer = await downloadFile(cfg, driveId, item.id);
+
+        if (source.key === "production_plan") {
+          const { rows, skipped, warnings } = await extractProduction(buffer);
+
+          // production_plan.month is UNIQUE, so a plain upsert would silently
+          // replace a month a person entered in the app. Operations staff are
+          // about to start doing exactly that, and a person's entry must win over
+          // a derived one — so read which months are marked manual and leave them.
+          const { data: manual } = await service
+            .from("production_plan")
+            .select("month")
+            .eq("source", "manual");
+          const protectedMonths = new Set((manual ?? []).map((m) => m.month));
+          const writable = rows.filter((r) => !protectedMonths.has(r.month));
+          const held = rows.length - writable.length;
+
+          const res = writable.length
+            ? await upsertChunked(service, "production_plan", writable, "month")
+            : { upserted: 0, errored: 0, error: undefined as string | undefined };
+
+          areas.push({
+            area: source.label,
+            status: res.error ? "error" : "ok",
+            read: rows.length,
+            upserted: res.upserted,
+            skipped: skipped.length + held,
+            errored: res.errored,
+            note:
+              res.error ??
+              [
+                ...warnings.map((w) => `\u26a0 ${w}`),
+                ...skipped,
+                held ? `${held} month(s) left untouched — entered in the app by a person` : "",
+              ]
+                .filter(Boolean)
+                .join(" | "),
+          });
+        }
 
         if (source.key === "stock_levels") {
           const { rows, skipped } = await extractStock(buffer);
