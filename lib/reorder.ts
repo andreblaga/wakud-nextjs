@@ -24,13 +24,19 @@ export type ReorderFlag = {
 };
 
 /**
- * A product whose stock figures and safety threshold are in different units, so
- * no below-safety judgement is possible. Surfaced instead of an alert.
+ * A product whose stock figures could not be compared against something, because
+ * the two sides are in different units. Surfaced instead of an alert.
+ *
+ *   "safety"     — stock unit vs the row's own safety_stock_unit.
+ *   "projection" — stock unit vs the production plan's unit, which blocks only
+ *                  the forward-looking check; the direct one still runs.
  */
 export type UnitMismatch = {
   product: string;
+  kind: "safety" | "projection";
   stockUnit: string;
-  safetyUnit: string;
+  /** The unit the stock was going to be compared against. */
+  comparedUnit: string;
   /** Human-readable basis, e.g. "stock is in KL but the safety level is in tonnes". */
   basis: string;
 };
@@ -38,15 +44,13 @@ export type UnitMismatch = {
 export type ReorderDetection = { flags: ReorderFlag[]; mismatches: UnitMismatch[] };
 
 /**
- * The unit safety stock levels are expressed in.
+ * The unit production_plan is denominated in.
  *
- * safety_stock_level predates the unit column (`DECIMAL DEFAULT 20` in
- * setup.sql) and is tonnes-denominated wherever it is set: the stock form
- * defaults it to 20 t, and the SharePoint sync never writes a safety level at
- * all. So a synced row keeps the tonnes-based column default while its stock
- * figures arrive in KL, and the two are not comparable.
+ * production_plan has no unit column — uco_consumed is tonnes throughout. It is
+ * subtracted from closing stock for the forward-looking check, so that
+ * subtraction is only meaningful when the stock figures are in tonnes too.
  */
-const SAFETY_UNIT: string = DEFAULT_STOCK_UNIT;
+const PLAN_UNIT: string = DEFAULT_STOCK_UNIT;
 
 /**
  * Pure detection: which products are below safety, or projected below after the
@@ -54,40 +58,44 @@ const SAFETY_UNIT: string = DEFAULT_STOCK_UNIT;
  * Reads only — no writes. Shared by evaluateReorder() (which raises alerts) and
  * lib/notifications.ts (which lists them), so the two never diverge.
  *
- * Unit-aware: a product is only judged when its stock figures are in the same
- * unit as its safety level (see SAFETY_UNIT). Anything else is returned as a
- * mismatch rather than a flag — a wrong reorder alert is worse than a missing
- * one.
+ * Unit-aware: a product is only judged when its stock figures and its safety
+ * level are in the same unit, both read from the row. Anything else is returned
+ * as a mismatch rather than a flag — a wrong reorder alert is worse than a
+ * missing one.
+ *
+ * A NULL safety level means no threshold has been set. Such a row is not below
+ * safety, is not a unit mismatch, and produces nothing at all: NULL is not zero.
  */
 export async function detectReorderFlags(supabase: ServerSupabaseClient): Promise<ReorderDetection> {
   const month = currentMonthStart();
 
   const [stockRes, planRes, orderRes] = await Promise.all([
-    supabase.from("stock_levels").select("product, month, closing_stock, safety_stock_level, unit").order("month", { ascending: false }),
+    supabase.from("stock_levels").select("product, month, closing_stock, safety_stock_level, safety_stock_unit, unit").order("month", { ascending: false }),
     supabase.from("production_plan").select("month, uco_consumed").gte("month", month).order("month", { ascending: true }),
     supabase.from("raw_material_orders").select("material, lead_time_days, status").in("status", ["pending", "ordered"]),
   ]);
 
-  const stock = (stockRes.data ?? []) as { product: string; month: string; closing_stock: number | null; safety_stock_level: number | null; unit: string | null }[];
+  const stock = (stockRes.data ?? []) as { product: string; month: string; closing_stock: number | null; safety_stock_level: number | null; safety_stock_unit: string | null; unit: string | null }[];
   const plans = (planRes.data ?? []) as { month: string; uco_consumed: number | null }[];
   const orders = (orderRes.data ?? []) as { material: string; lead_time_days: number | null }[];
 
   // Latest stock row per product (rows are month-descending).
-  const latest = new Map<string, { closing: number; safety: number; unit: string }>();
+  const latest = new Map<string, { closing: number; safety: number | null; unit: string; safetyUnit: string }>();
   for (const s of stock) {
     if (!latest.has(s.product)) {
       latest.set(s.product, {
         closing: Number(s.closing_stock) || 0,
-        safety: Number(s.safety_stock_level) || 0,
-        unit: s.unit || SAFETY_UNIT,
+        // NULL means no threshold set, which is not the same as 0 — keep it null
+        // rather than coercing, so the guard below can tell them apart.
+        safety: s.safety_stock_level === null ? null : Number(s.safety_stock_level),
+        unit: s.unit || DEFAULT_STOCK_UNIT,
+        safetyUnit: s.safety_stock_unit || DEFAULT_STOCK_UNIT,
       });
     }
   }
 
-  // Next planned month's UCO consumption (forward-looking shortfall for UCO).
-  // production_plan has no unit column and is tonnes throughout, so this is only
-  // safe to subtract from a stock figure that is itself in SAFETY_UNIT — which
-  // the unit guard below already ensures.
+  // Next planned month's UCO consumption (forward-looking shortfall for UCO), in
+  // PLAN_UNIT. Only subtracted from stock that is in the same unit.
   const nextUcoConsumption = plans.length ? Number(plans[0].uco_consumed) || 0 : 0;
 
   // Shortest open-order lead time per material.
@@ -100,21 +108,43 @@ export async function detectReorderFlags(supabase: ServerSupabaseClient): Promis
 
   const flags: ReorderFlag[] = [];
   const mismatches: UnitMismatch[] = [];
-  for (const [product, { closing, safety, unit }] of Array.from(latest.entries())) {
+  for (const [product, { closing, safety, unit, safetyUnit }] of Array.from(latest.entries())) {
+    // No threshold set. Not below safety, not a mismatch, nothing to say —
+    // NULL is not zero, and inventing a threshold would alert on a number
+    // nobody chose.
+    if (safety === null) continue;
+
     // Different units — comparing them would be meaningless, and converting
     // needs a confirmed density per material that we do not have. Warn instead
     // of judging: a wrong reorder alert is worse than a missing one.
-    if (unit !== SAFETY_UNIT) {
+    if (unit !== safetyUnit) {
       mismatches.push({
         product,
+        kind: "safety",
         stockUnit: unit,
-        safetyUnit: SAFETY_UNIT,
-        basis: `stock is in ${unit} but the safety level is in ${SAFETY_UNIT}`,
+        comparedUnit: safetyUnit,
+        basis: `stock is in ${unit} but the safety level is in ${safetyUnit}`,
       });
       continue;
     }
 
-    const consumption = product.toUpperCase() === "UCO" ? nextUcoConsumption : 0;
+    // The forward-looking check subtracts a production_plan figure, which is in
+    // PLAN_UNIT. Matching stock and safety units does not make that subtraction
+    // valid, so it is guarded separately — the direct comparison below still
+    // runs, and only the projection is withheld.
+    const wantsConsumption = product.toUpperCase() === "UCO" && nextUcoConsumption > 0;
+    const canProject = unit === PLAN_UNIT;
+    if (wantsConsumption && !canProject) {
+      mismatches.push({
+        product,
+        kind: "projection",
+        stockUnit: unit,
+        comparedUnit: PLAN_UNIT,
+        basis: `stock is in ${unit} but planned consumption is in ${PLAN_UNIT}`,
+      });
+    }
+
+    const consumption = wantsConsumption && canProject ? nextUcoConsumption : 0;
     const projected = closing - consumption;
     const below = closing < safety;
     const projectedBelow = projected < safety;
@@ -178,14 +208,19 @@ export async function evaluateReorder(supabase: ServerSupabaseClient): Promise<R
   }
 
   for (const m of mismatches) {
+    // A product yields at most one mismatch: a safety mismatch short-circuits
+    // before the projection check ever runs, so the product alone is key enough.
     if (existing.has(`unit_mismatch:${m.product}`)) continue;
     toRaise.push({
       alert_type: "unit_mismatch",
       severity: "warning",
       title: `Units differ for ${m.product}`,
       description:
-        `${m.product} ${m.basis}, so no below-safety check ran. ` +
-        `Set the safety level in ${m.stockUnit}, or record the stock figures in ${m.safetyUnit}.`,
+        m.kind === "safety"
+          ? `${m.product} ${m.basis}, so no below-safety check ran. ` +
+            `Set the safety level in ${m.stockUnit}, or record the stock figures in ${m.comparedUnit}.`
+          : `${m.product} ${m.basis}, so the forward-looking check was skipped ` +
+            `(the direct below-safety check still ran). Record the stock figures in ${m.comparedUnit} to restore it.`,
       category: "inventory",
       related_entity_type: "stock_product",
       related_entity_id: m.product,

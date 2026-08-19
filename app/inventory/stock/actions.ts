@@ -10,15 +10,16 @@ import type { Database } from "@/lib/supabase/types";
 
 type StockInsert = Database["public"]["Tables"]["stock_levels"]["Insert"];
 
-const DEFAULT_SAFETY = 20; // matches stock_levels.safety_stock_level default
-
 /** Closing and below-safety are derived server-side, never taken from the client. */
 function toRow(s: StockLevelInput): StockInsert {
   const opening = s.opening_stock;
   const produced = s.produced ?? 0;
   const purchased = s.purchased ?? 0;
   const delivered = s.delivered ?? 0;
-  const safety = s.safety_stock_level ?? DEFAULT_SAFETY;
+  // Left empty means no threshold set. Storing NULL keeps that honest — the old
+  // fallback to 20 invented a number nobody chose (the DB default is dropped
+  // too, see supabase/phase5b-stock-safety-unit.sql).
+  const safety = s.safety_stock_level ?? null;
   const closing = opening + produced + purchased - delivered;
   return {
     product: s.product,
@@ -29,10 +30,12 @@ function toRow(s: StockLevelInput): StockInsert {
     delivered,
     closing_stock: closing,
     safety_stock_level: safety,
-    // Both numbers come from this form, so they are in the unit it just
-    // declared — the comparison is within one unit by construction.
-    is_below_safety: closing < safety,
+    // Only meaningful when a threshold exists and both sides are in the same
+    // unit; otherwise there is nothing to compare and the flag stays null.
+    is_below_safety:
+      safety !== null && s.unit === s.safety_stock_unit ? closing < safety : null,
     unit: s.unit,
+    safety_stock_unit: s.safety_stock_unit,
   };
 }
 

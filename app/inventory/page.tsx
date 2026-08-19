@@ -10,7 +10,7 @@ import { getSessionUser } from "@/lib/auth";
 import { canWrite } from "@/lib/permissions";
 import { formatNumber } from "@/lib/currency";
 import { monthLabel, formatDate } from "@/lib/dates";
-import { DEFAULT_STOCK_UNIT, unitLabel } from "@/lib/units";
+import { unitLabel } from "@/lib/units";
 
 export default function InventoryPage() {
   return (
@@ -49,6 +49,7 @@ type StockRow = {
   delivered: number | null;
   closing_stock: number | null;
   safety_stock_level: number | null;
+  safety_stock_unit: string;
   is_below_safety: boolean | null;
   unit: string;
 };
@@ -67,13 +68,21 @@ type OrderRow = {
 /**
  * Whether the stored below-safety flag can be trusted for this row.
  *
- * is_below_safety is computed on save against a safety level in tonnes. The
- * SharePoint sync replaces a row's figures and unit without touching either, so
- * on a non-tonnes row the flag is a stale tonnes-based comparison. Showing it
- * would be a wrong warning; lib/reorder.ts raises a units-differ alert instead.
+ * is_below_safety is computed on save, against the safety level as it stood
+ * then. The SharePoint sync replaces a row's figures and unit without touching
+ * the threshold or this flag, so it can be left describing a comparison that no
+ * longer holds. Trust it only when there is a threshold at all and both sides
+ * are in the same unit; lib/reorder.ts raises a units-differ alert otherwise.
  */
 function belowSafetyIsMeaningful(s: StockRow): boolean {
-  return !!s.is_below_safety && s.unit === DEFAULT_STOCK_UNIT;
+  if (s.safety_stock_level === null) return false; // no threshold set
+  if (s.unit !== s.safety_stock_unit) return false; // not comparable
+  return !!s.is_below_safety;
+}
+
+/** A row whose units rule out any safety comparison (a threshold exists, but differs in unit). */
+function unitsBlockComparison(s: StockRow): boolean {
+  return s.safety_stock_level !== null && s.unit !== s.safety_stock_unit;
 }
 
 const stockColumns: Column<StockRow>[] = [
@@ -126,7 +135,7 @@ async function InventoryContent() {
   const [stockRes, ordersRes] = await Promise.all([
     supabase
       .from("stock_levels")
-      .select("id, product, month, opening_stock, produced, purchased, delivered, closing_stock, safety_stock_level, is_below_safety, unit")
+      .select("id, product, month, opening_stock, produced, purchased, delivered, closing_stock, safety_stock_level, safety_stock_unit, is_below_safety, unit")
       .order("month", { ascending: false }),
     supabase
       .from("raw_material_orders")
@@ -169,9 +178,9 @@ async function InventoryContent() {
   const ucoStock = ucoRow?.closing_stock ?? null;
   const b100Stock = b100Row?.closing_stock ?? null;
   const belowSafety = Array.from(latestByProduct.values()).filter(belowSafetyIsMeaningful);
-  // Latest rows whose unit rules out a safety comparison — counted separately so
+  // Latest rows whose units rule out a safety comparison — counted separately so
   // they are visible rather than silently absent from "Below safety".
-  const uncheckedUnits = Array.from(latestByProduct.values()).filter((s) => s.unit !== DEFAULT_STOCK_UNIT);
+  const uncheckedUnits = Array.from(latestByProduct.values()).filter(unitsBlockComparison);
   const openOrders = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled").length;
 
   return (
@@ -217,7 +226,8 @@ async function InventoryContent() {
                   <li key={s.id} className="flex items-center justify-between">
                     <span className="text-slate-700">{s.product}</span>
                     <span className="text-xs text-accent-600">
-                      {formatNumber(s.closing_stock)} {unitLabel(s.unit)} · safety {formatNumber(s.safety_stock_level)} {unitLabel(s.unit)}
+                      {formatNumber(s.closing_stock)} {unitLabel(s.unit)} · safety{" "}
+                      {formatNumber(s.safety_stock_level)} {unitLabel(s.safety_stock_unit)}
                     </span>
                   </li>
                 ))}
@@ -227,10 +237,11 @@ async function InventoryContent() {
             )}
             {uncheckedUnits.length > 0 && (
               <p className="mt-2 text-xs text-amber-700">
-                Not checked — stock is recorded in a different unit from the safety level (which is in{" "}
-                {unitLabel(DEFAULT_STOCK_UNIT)}):{" "}
-                {uncheckedUnits.map((s) => `${s.product} (${unitLabel(s.unit)})`).join(", ")}. Converting needs a
-                confirmed density per material, so no comparison was made.
+                Not checked — stock and safety level are in different units:{" "}
+                {uncheckedUnits
+                  .map((s) => `${s.product} (${unitLabel(s.unit)} vs ${unitLabel(s.safety_stock_unit)})`)
+                  .join(", ")}
+                . Converting needs a confirmed density per material, so no comparison was made.
               </p>
             )}
             <RoleGate domain="inventory">

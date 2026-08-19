@@ -18,6 +18,7 @@ export type StockDefaults = Partial<{
   delivered: number;
   safety_stock_level: number;
   unit: string;
+  safety_stock_unit: string;
 }>;
 
 const toMonth = (v?: string) => (v ? v.slice(0, 7) : undefined);
@@ -53,11 +54,27 @@ export default function StockForm({
           <NumberInput name="produced" label="Produced" defaultValue={defaults.produced} error={err.produced} />
           <NumberInput name="purchased" label="Purchased" defaultValue={defaults.purchased} error={err.purchased} />
           <NumberInput name="delivered" label="Out / delivered" defaultValue={defaults.delivered} error={err.delivered} />
-          <NumberInput name="safety_stock_level" label="Safety level" defaultValue={defaults.safety_stock_level} hint="Default 20" error={err.safety_stock_level} />
+          <NumberInput
+            name="safety_stock_level"
+            label="Safety level"
+            defaultValue={defaults.safety_stock_level}
+            hint="Leave empty for no threshold"
+            error={err.safety_stock_level}
+          />
+          <SelectInput
+            name="safety_stock_unit"
+            label="Safety level unit"
+            required
+            options={STOCK_UNIT_OPTIONS}
+            defaultValue={defaults.safety_stock_unit ?? DEFAULT_STOCK_UNIT}
+            hint="Reorder checks only run when this matches the unit above"
+            error={err.safety_stock_unit}
+          />
         </div>
         <p className="text-[11px] text-slate-400">
           Closing stock and the below-safety flag are computed on save
-          (opening + produced + purchased − out).
+          (opening + produced + purchased − out). With no safety level, or with
+          the two units differing, no below-safety check runs.
         </p>
         <FormError message={state.formError} />
         <FormActions cancelHref="/inventory" submitLabel={submitLabel} />

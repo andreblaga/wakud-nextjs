@@ -79,10 +79,16 @@ export const stockLevelSchema = z.object({
   produced: optNum,
   purchased: optNum,
   delivered: optNum,
+  // Optional: left empty means no threshold has been set, which is stored as
+  // NULL and never treated as zero.
   safety_stock_level: optNum,
   // Figures are stored in the unit they were entered in — nothing converts, so
   // the row has to say which unit it means. Defaults to the DB default.
   unit: z.enum(STOCK_UNITS).default(DEFAULT_STOCK_UNIT),
+  // The safety level carries its own unit: the sync overwrites the measurement
+  // columns and their unit without touching the threshold, so one row can hold
+  // two different units.
+  safety_stock_unit: z.enum(STOCK_UNITS).default(DEFAULT_STOCK_UNIT),
 });
 export type StockLevelInput = z.infer<typeof stockLevelSchema>;
 

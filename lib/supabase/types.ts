@@ -1092,6 +1092,7 @@ export type Database = {
           product: string
           purchased: number | null
           safety_stock_level: number | null
+          safety_stock_unit: string
           unit: string
         }
         Insert: {
@@ -1105,6 +1106,7 @@ export type Database = {
           product: string
           purchased?: number | null
           safety_stock_level?: number | null
+          safety_stock_unit?: string
           unit?: string
         }
         Update: {
@@ -1118,6 +1120,7 @@ export type Database = {
           product?: string
           purchased?: number | null
           safety_stock_level?: number | null
+          safety_stock_unit?: string
           unit?: string
         }
         Relationships: []
