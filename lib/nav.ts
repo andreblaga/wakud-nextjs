@@ -14,6 +14,7 @@ import {
   Bell,
   Bot,
   ShieldAlert,
+  RefreshCw,
 } from "lucide-react";
 
 export type NavItem = {
@@ -45,6 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "To-Do", href: "/tasks", icon: ListChecks, description: "Timeline & priorities", section: "Collaboration" },
   { label: "Assistant", href: "/assistant", icon: Bot, description: "Ask questions about your data", section: "Collaboration" },
 
+  { label: "Data Sync", href: "/sync", icon: RefreshCw, description: "SharePoint import status & sources", section: "System", adminOnly: true },
   { label: "Admin", href: "/admin", icon: ShieldAlert, description: "Users, roles & system settings", section: "System", adminOnly: true },
 ];
 

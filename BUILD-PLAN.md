@@ -55,11 +55,15 @@ Replace placeholders with real queries + a reusable `DataTable`. One PR per page
 - [x] **Export to Excel** — client-side via exceljs (`lib/export-excel.ts` + `ExportExcelButton`). Wired into Finance + Deals (Deals respects active filters).
 - **Migrations to run:** `supabase/phase4-tasks.sql`, `supabase/phase4-discussions.sql` (+ enable Realtime).
 
-## Phase 5 — SharePoint sync (design: `docs/sharepoint-integration.md`)
+## Phase 5 — SharePoint sync (design: `docs/sharepoint-integration.md`, audit: `docs/sharepoint-findings.md`)
 - [x] M365 app registration — **provisioned 2026-08-13**: `Sites.Selected` read-only, Barka Operations Hub only. Creds in `.env.local` (`MS_*`, `SHAREPOINT_SITE_URL` pre-filled).
-- [ ] **Blocked on team:** confirm canonical source workbooks per data area + that they live in the granted site (format presumed Excel, not Lists). See design doc §6.
-- [ ] Server-side job (route handler + scheduled trigger) — read-only, reads SharePoint and upserts into Supabase (idempotent). SharePoint stays source of truth; **no write-back** (data out = Export-to-Excel).
-- [ ] Sync status/last-run surfaced in the UI.
+- [x] **Site scope confirmed 2026-08-19** — live crawl found all eleven nominated workbooks inside the granted site. Nothing to move, no grant extension needed.
+- [x] **Sync built** (2026-08-19) — `lib/sharepoint/*`: read-only Graph client (GET-only by construction), delta traversal, pinned-path source registry, idempotent chunked upserts, per-run logging to `sync_runs`. Admin-gated `POST /api/sync/sharepoint`, status page `/sync` (nav: System, admin-only). Smoke test `scripts/verify-sharepoint.mts` — green: 14,393 items, 8,186 documents, 108 stock rows, 30s, zero key collisions.
+  - **Active:** document index (all ~8,200 library files -> `documents`, bytes stay in SharePoint) and monthly `stock_levels` (9 materials x 12 months of 2026, aggregated from the daily series).
+  - **Blocked: 10 of 11 nominated areas.** The files exist but don't hold the fields the app needs — templates, financial models, bank exports, one empty file. Each is registered `blocked` in `lib/sharepoint/sources.ts` with the reason and the question for the team, and surfaced on `/sync`. Blocked areas deliberately do not run. Full detail: `docs/sharepoint-findings.md`.
+  - **Andre to run:** `supabase/phase5-sharepoint-sync.sql`, then regenerate `lib/supabase/types.ts`. Until then `/sync` shows a migration banner and the sync can't record runs.
+- [ ] Scheduled trigger (manual run works today; needs its own auth secret, not the admin-gated handler).
+- [ ] **Blocked on team:** the ten questions in `docs/sharepoint-findings.md`. Highest leverage single request: thin "export" tabs (one sheet, one row per record, agreed units) per data area.
 
 ## Phase 6 — AI assistant (final)
 - [ ] Chat box that answers questions grounded in the live data (deals, stock, forecasts). Decide provider + what data is sent. See BACKLOG.

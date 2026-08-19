@@ -192,6 +192,37 @@ Page → feature map: inventory (UCO stock/intake/reorder), production (B100+gly
   - **Still open:** the rest of P1 auth hardening — **self-serve** password reset, email confirmation, session timeout. Until that lands, a forgotten password means an admin resets it on `/admin` (or in the Supabase dashboard).
 - **Notifications (2026-06-18)** — functional TopBar bell + `/alerts` page (added to nav under Overview). All "what needs attention" items are derived live in one helper, `lib/notifications.ts` (never relies on a cron/populated table): upcoming/overdue raw-material orders (≤14 days), low stock (reuses the extracted `detectReorderFlags` from `lib/reorder.ts`), deals created in the last 7 days, plus unresolved `system_alerts` — de-duped (a live low-stock item supersedes its raised reorder alert), sorted by severity then urgency, capped at 20. The bell fetches `GET /api/notifications` (authenticated route handler); the dashboard card and `/alerts` read the same helper so they never diverge.
 
+## 9b. SharePoint sync built + source audit (2026-08-19)
+
+Live crawl of Barka Operations Hub with the app-only token, then every nominated workbook opened and read.
+
+**Site scope: resolved.** All eleven candidate workbooks are inside the granted site. No files to move, no grant extension. The library is bigger than documented — **14,393 items** (8,265 files, 6,128 folders; 4,382 PDFs, 967 spreadsheets), not ~4.9k.
+
+**Two traps that shaped the design.** (1) 120 spreadsheet filenames exist in multiple folders (352 files) — `Delivery Note Template.xlsx` 38 times, the 13-week RCF 14, `Summary mass balance` 16 — so every source is pinned to a full library-relative path, never matched by name. (2) 983 of 991 spreadsheets carry a `lastModified` of 2026-03 or 2026-06, the two bulk-migration uploads, so **recency is not evidence of currency**.
+
+**Built** (`lib/sharepoint/`, `app/sync`, `app/api/sync/sharepoint`, `supabase/phase5-sharepoint-sync.sql`): read-only Graph client that is GET-only by construction (second lock over the read-only grant, so write-back can't be introduced by a later edit), delta traversal, declarative source registry, idempotent chunked upserts on natural keys, per-run logging, admin-gated trigger, `/sync` status page. `npm run build` green (26 routes). Smoke test `scripts/verify-sharepoint.mts` green end-to-end against the live site in 30s.
+
+**Active: 2 areas.**
+- **Document index** — ~8,200 library files into `documents` with folder, type, size, author, modified date and the SharePoint `webUrl`. Bytes never move; SharePoint permissions still apply on open. This is §8b's "documents stay in SharePoint, the app reads", delivered.
+- **`stock_levels`** — 108 rows (9 materials x 12 months of 2026) aggregated from the inventory workbook's daily series. Reconciles to the decimal against the workbook's own summary block.
+
+**Blocked: 10 areas** — the nominated files exist but don't hold the fields the app needs. Deals/contracts: a 10-row prospect list with every contract term blank. Forecast: a 9-sheet financial model, not a table. Production: the file is **empty** (A1:A1). ISCC mass balance: `#REF!` from the second period onward, and it tracks a sustainability category the schema can't hold. Invoices: a bank statement, not a receivables ledger. Quality: a 2023 sample-dispatch log with no test results. Logistics, procurement, UCO intake: similar. Each is `blocked` in `lib/sharepoint/sources.ts` with a reason and a question, shown on `/sync`; blocked areas do not run, because a parser that invents rows is worse than an empty page. **Full detail and the ten questions: [`docs/sharepoint-findings.md`](./docs/sharepoint-findings.md).**
+
+**Three data-integrity flags for Andre:**
+1. **Stock units are KL** (antioxidant Kg) while the app labels tonnes. Stored unconverted with a new `stock_levels.unit` column; conversion needs agreed densities.
+2. **The 2026 inventory dates are suspect.** The BIODIESEL summary block is headed "July / August / Sept" and reports produced 17.26 / 39.3 / 0.944 — *exactly* the figures the aggregation derives for **Jan / Feb / Mar 2026**. Either the labels are stale or a Jul–Sep actuals series sits in a 2026-dated template. Resolve before anyone reads the Inventory page as 2026 truth. Only three months contain any activity; Apr–Dec are flat carry-forward.
+3. **The client secret expiry is still unrecorded** anywhere in the repo or `.env.local`. The Graph client now names an expired-secret 401 explicitly, but it still stops the sync dead.
+
+## 9c. Migration status verified (2026-08-19)
+
+Probed the live project `ftrtekdiabttvjlfgisy` directly. **All eight migrations are applied.** 26/26 tables present; `has_role`, `has_any_role` and `is_admin` all resolve; `wakud-documents` bucket is **private**; anon is blocked (401) on deals, contracts, contract_volumes, production_plan, stock_levels, prices, monthly_forecast, price_feeds, invoices and user_roles — so `roles-rls.sql` did run and the anon exposure is closed. Realtime subscribe succeeds for `messages` and `channels`. Row counts: `audit_log` 2, `channels` 5 (seeded), `deals` 1, `exchange_rates` 1, `user_roles` 2 — everything else empty. **P0 #1 is done; `user_roles` at 2 confirms the eight staff accounts are still outstanding.**
+
+## 9d. PDF templates drafted (2026-08-19)
+
+Four templates in `docs/templates/wakud-pdf-templates.html` (print-ready A4) with the spec and field maps in [`docs/pdf-templates.md`](./docs/pdf-templates.md): Tax Invoice (also Quote / Proforma modes), ISCC EU Proof of Sustainability, Finance & Forecast Report, per-page Snapshot.
+
+Not invented — the invoice letterhead, VAT number, bank block, numbering conventions (`BD-<yy>-<seq>`, `BD-NT-<seq>`) and line-item columns come from Wakud's own `4401- INVOICE templ.xlsx`, and the PoS is field-for-field against the **v3.1** form in `11_ESG.../2025 - CoC/Outcomes Sales, PoS/`. Two things found while drafting: their existing invoice labels the pre-tax figure "Total amount" above a larger "Total due" (renamed to Subtotal here), and shipping is added after VAT — finance should confirm. The PoS deliberately prints its GHG fields blank: it is a signed legal declaration and the app cannot yet source batch-level figures.
+
 ## 10. Open items / next steps
 
 - **The build roadmap now lives in [`BUILD-PLAN.md`](./BUILD-PLAN.md)** — the phased, checkbox-driven plan Claude Code executes (Phase 0 connect Supabase → 1 auth → 2 wire pages → 3 write flows → 4 new modules → 5 SharePoint → 6 AI).
