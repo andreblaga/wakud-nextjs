@@ -15,6 +15,7 @@ import {
   Bot,
   ShieldAlert,
   RefreshCw,
+  FileStack,
 } from "lucide-react";
 
 export type NavItem = {
@@ -40,6 +41,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Finance", href: "/finance", icon: Wallet, description: "Invoices & finance exports", section: "Commercial" },
 
   { label: "ISCC Compliance", href: "/iscc", icon: ShieldCheck, description: "Certificates & feed/product mass balance", section: "Compliance" },
+  { label: "Documents", href: "/documents", icon: FileStack, description: "Indexed SharePoint files", section: "Compliance" },
   { label: "Change Log", href: "/change-log", icon: History, description: "Audit trail of all actions", section: "Compliance" },
 
   { label: "Discussions", href: "/discussions", icon: MessagesSquare, description: "Team chat & item references", section: "Collaboration" },
