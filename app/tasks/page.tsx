@@ -58,6 +58,19 @@ async function Board({ query }: { query: string }) {
   const user = await getSessionUser();
   const canEdit = canWrite(user?.role, "tasks");
 
+  // The other half of the feedback link. feedback.task_id owns the relationship,
+  // so the board reads it back rather than duplicating it onto tasks — a request
+  // and the work it became should each be reachable from the other.
+  const { data: linkedData } = await supabase
+    .from("feedback")
+    .select("id, task_id")
+    .not("task_id", "is", null);
+  const feedbackByTask = new Map(
+    ((linkedData ?? []) as { id: string; task_id: string | null }[])
+      .filter((f): f is { id: string; task_id: string } => !!f.task_id)
+      .map((f) => [f.task_id, f.id]),
+  );
+
   const byStatus = (status: TaskStatus) =>
     tasks
       .filter((t) => t.status === status)
@@ -88,7 +101,14 @@ async function Board({ query }: { query: string }) {
             </div>
             <Card className={`min-h-[24rem] space-y-2 border-dashed ${COLUMN_TINT[col.value]} bg-slate-50/50 p-3`}>
               {items.length > 0 ? (
-                items.map((t) => <TaskCard key={t.id} task={t} canEdit={canEdit} />)
+                items.map((t) => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    canEdit={canEdit}
+                    fromFeedbackId={feedbackByTask.get(t.id) ?? null}
+                  />
+                ))
               ) : (
                 <p className="px-2 py-8 text-center text-xs text-slate-400">No tasks</p>
               )}

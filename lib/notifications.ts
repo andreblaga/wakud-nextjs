@@ -1,8 +1,10 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { detectReorderFlags } from "@/lib/reorder";
+import { feedbackWithNewReplies, canTriageFeedback, type CommentStamp } from "@/lib/feedback";
+import type { SessionUser } from "@/lib/permissions";
 import { formatDate } from "@/lib/dates";
 
-export type NotificationType = "order" | "stock" | "deal" | "alert";
+export type NotificationType = "order" | "stock" | "deal" | "alert" | "feedback";
 export type NotificationSeverity = "critical" | "warning" | "info";
 
 export type Notification = {
@@ -26,14 +28,24 @@ const DAY = 86_400_000;
  *   - stock whose unit differs from its safety level, which blocks that check
  *   - deals created in the last 7 days
  *   - any unresolved system_alerts (explicitly raised)
+ *   - feedback (see below) — needs `viewer`, since those two are per-person
  * De-duped (a live low-stock item supersedes its raised reorder alert), sorted
  * by severity then urgency, capped at `limit`.
+ *
+ * The two feedback items follow the same no-stored-state principle as the rest
+ * of this file, which is what keeps it from going stale:
+ *   - admin/gm see anything still sitting at status "new" and unarchived
+ *   - a submitter sees their own items whose newest comment is by somebody else
+ *     and newer than anything they have said on it. That is derivable from the
+ *     timestamps alone, so there is no per-user read-state table to maintain —
+ *     and nothing that can drift out of step with the conversation.
  *
  * Single source of truth for the TopBar bell, the dashboard card, and /alerts.
  */
 export async function getNotifications(
   supabase: ServerSupabaseClient,
   limit = 20,
+  viewer?: SessionUser | null,
 ): Promise<Notification[]> {
   const now = Date.now();
   const today = new Date(now).toISOString().slice(0, 10);
@@ -57,6 +69,8 @@ export async function getNotifications(
       .eq("is_resolved", false)
       .order("created_at", { ascending: false }),
   ]);
+
+  const feedbackItems = await getFeedbackNotifications(supabase, viewer);
 
   const orders = (ordersRes.data ?? []) as {
     id: string; material: string; supplier: string | null; status: string | null;
@@ -144,6 +158,12 @@ export async function getNotifications(
     });
   }
 
+  // 3b. Feedback: replies waiting on the viewer, then anything needing triage.
+  // Replies are pushed first so that on the rare item that is both (an admin's
+  // own request, still "new", already answered by someone else) the bell shows
+  // the thing that actually happened rather than the standing state.
+  for (const f of feedbackItems) push(f);
+
   // 4. Explicitly raised, unresolved alerts
   for (const a of alerts) {
     const severity: NotificationSeverity =
@@ -175,4 +195,89 @@ export async function getNotifications(
   });
 
   return items.slice(0, limit).map(({ dedupeKey: _k, urgencyScore: _u, ...n }) => n);
+}
+
+type FeedbackNotification = Notification & { dedupeKey: string; urgencyScore: number };
+
+/**
+ * Feedback items worth telling this viewer about.
+ *
+ * Both kinds share the `feedback:<id>` dedupe key, so one item never appears
+ * twice in the same bell — consistent with how a live low-stock reading
+ * supersedes the reorder alert raised for the same product.
+ */
+async function getFeedbackNotifications(
+  supabase: ServerSupabaseClient,
+  viewer: SessionUser | null | undefined,
+): Promise<FeedbackNotification[]> {
+  if (!viewer) return [];
+  const now = Date.now();
+  const out: FeedbackNotification[] = [];
+
+  const ageDays = (iso: string | null | undefined) =>
+    iso ? (now - new Date(iso).getTime()) / DAY : 0;
+
+  // Replies on the viewer's own items, waiting for them.
+  const { data: mine } = await supabase
+    .from("feedback")
+    .select("id, title")
+    .eq("submitted_by", viewer.id)
+    .is("archived_at", null);
+
+  const own = (mine ?? []) as { id: string; title: string }[];
+  if (own.length > 0) {
+    const { data: commentData } = await supabase
+      .from("feedback_comments")
+      .select("feedback_id, author_id, created_at")
+      .in("feedback_id", own.map((f) => f.id));
+
+    const titles = new Map(own.map((f) => [f.id, f.title]));
+    const waiting = feedbackWithNewReplies(
+      viewer.id,
+      titles.keys(),
+      (commentData ?? []) as CommentStamp[],
+    );
+
+    for (const w of waiting) {
+      out.push({
+        id: `feedback-reply-${w.feedbackId}`,
+        type: "feedback",
+        severity: "info",
+        title: `New reply: ${titles.get(w.feedbackId) ?? "your feedback"}`,
+        detail: `Someone replied to your feedback · ${formatDate(w.latestReplyAt)}`,
+        href: `/feedback/${w.feedbackId}`,
+        date: w.latestReplyAt,
+        dedupeKey: `feedback:${w.feedbackId}`,
+        urgencyScore: ageDays(w.latestReplyAt),
+      });
+    }
+  }
+
+  // Untriaged feedback, for whoever can act on it.
+  if (canTriageFeedback(viewer.role)) {
+    const { data: untriaged } = await supabase
+      .from("feedback")
+      .select("id, title, category, created_at")
+      .eq("status", "new")
+      .is("archived_at", null)
+      .order("created_at", { ascending: false });
+
+    for (const f of (untriaged ?? []) as {
+      id: string; title: string; category: string | null; created_at: string;
+    }[]) {
+      out.push({
+        id: `feedback-triage-${f.id}`,
+        type: "feedback",
+        severity: "info",
+        title: `Feedback needs triage: ${f.title}`,
+        detail: `${f.category ?? "uncategorised"} · raised ${formatDate(f.created_at)}`,
+        href: `/feedback/${f.id}`,
+        date: f.created_at,
+        dedupeKey: `feedback:${f.id}`,
+        urgencyScore: ageDays(f.created_at),
+      });
+    }
+  }
+
+  return out;
 }

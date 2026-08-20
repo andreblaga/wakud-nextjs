@@ -17,6 +17,7 @@ import {
   RefreshCw,
   FileStack,
   FileText,
+  Lightbulb,
 } from "lucide-react";
 
 export type NavItem = {
@@ -48,6 +49,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   { label: "Discussions", href: "/discussions", icon: MessagesSquare, description: "Team chat & item references", section: "Collaboration" },
   { label: "To-Do", href: "/tasks", icon: ListChecks, description: "Timeline & priorities", section: "Collaboration" },
+  { label: "Feedback", href: "/feedback", icon: Lightbulb, description: "Ideas, problems & questions from the team", section: "Collaboration" },
   { label: "Assistant", href: "/assistant", icon: Bot, description: "Ask questions about your data", section: "Collaboration" },
 
   { label: "Data Sync", href: "/sync", icon: RefreshCw, description: "SharePoint import status & sources", section: "System", adminOnly: true },

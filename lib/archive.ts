@@ -17,10 +17,11 @@
 import type { ServerSupabaseClient } from "@/lib/supabase/server";
 import { canWrite, type Role } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
+import { setParam, type SearchParams } from "@/lib/query-params";
 
 type ArchivableConfig = {
   /** Table to update. */
-  table: "deals" | "contracts" | "invoices" | "raw_material_orders" | "shipments";
+  table: "deals" | "contracts" | "invoices" | "raw_material_orders" | "shipments" | "feedback";
   /** Write domain the entity sits behind — the same one its edit action uses. */
   domain: string;
   /** Human noun for confirm copy: "Archive this deal?" */
@@ -81,6 +82,17 @@ export const ARCHIVABLE = {
     label: "shipment",
     listPath: "/logistics",
     detailBase: null,
+    alsoRevalidate: [],
+  },
+  // Archiving a request is a triage decision, so it sits behind the same
+  // admin/gm domain as setting its status — not behind the submitter, who
+  // could otherwise quietly retire an inconvenient answer.
+  feedback: {
+    table: "feedback",
+    domain: "feedback",
+    label: "feedback item",
+    listPath: "/feedback",
+    detailBase: "/feedback",
     alsoRevalidate: [],
   },
 } as const satisfies Record<string, ArchivableConfig>;
@@ -174,28 +186,12 @@ type GenericTable = {
 /** Query parameter that switches a list from live-only to live + archived. */
 export const ARCHIVED_PARAM = "archived";
 
-type SearchParams = Record<string, string | string[] | undefined>;
-
 /** Whether the current request asked to see archived rows. */
 export function showArchivedFrom(searchParams: SearchParams | undefined): boolean {
   return searchParams?.[ARCHIVED_PARAM] === "1";
 }
 
-/**
- * Href that flips the archived state while keeping every other parameter.
- *
- * Keeping them matters: global search sends people to `/contracts?q=acme`, and
- * a toggle that dropped `q` would quietly widen the list back out to everything
- * the moment somebody looked for the archived one.
- */
+/** Href that flips the archived state while keeping every other parameter. */
 export function toggleArchivedHref(basePath: string, searchParams: SearchParams | undefined): string {
-  const next = new URLSearchParams();
-  for (const [key, value] of Object.entries(searchParams ?? {})) {
-    if (key === ARCHIVED_PARAM || value === undefined) continue;
-    if (Array.isArray(value)) value.forEach((v) => next.append(key, v));
-    else next.set(key, value);
-  }
-  if (!showArchivedFrom(searchParams)) next.set(ARCHIVED_PARAM, "1");
-  const query = next.toString();
-  return query ? `${basePath}?${query}` : basePath;
+  return setParam(basePath, searchParams, ARCHIVED_PARAM, showArchivedFrom(searchParams) ? null : "1");
 }

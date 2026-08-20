@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { STOCK_UNITS, DEFAULT_STOCK_UNIT } from "@/lib/units";
+import { FEEDBACK_CATEGORIES, FEEDBACK_STATUSES } from "@/lib/feedback";
 
 /**
  * Zod schemas for every create/edit form. Forms submit FormData (all strings),
@@ -120,6 +121,36 @@ export const taskSchema = z.object({
   link_id: optStr,
 });
 export type TaskInput = z.infer<typeof taskSchema>;
+
+/**
+ * A submission needs a title and nothing else. Every extra required field on a
+ * suggestion box is a reason not to bother using it.
+ */
+export const feedbackSchema = z.object({
+  title: z.string().trim().min(1, "Give it a title"),
+  description: optStr,
+  category: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.enum(FEEDBACK_CATEGORIES).optional(),
+  ),
+});
+export type FeedbackInput = z.infer<typeof feedbackSchema>;
+
+export const feedbackCommentSchema = z.object({
+  body: z.string().trim().min(1, "Write something before posting"),
+});
+export type FeedbackCommentInput = z.infer<typeof feedbackCommentSchema>;
+
+/**
+ * Shape only. The rule that "declined" requires a resolution is a cross-field
+ * one and lives in validateTriage() in lib/feedback.ts, which the server action
+ * applies on every path.
+ */
+export const feedbackTriageSchema = z.object({
+  status: z.enum(FEEDBACK_STATUSES),
+  resolution: optStr,
+});
+export type FeedbackTriageInput = z.infer<typeof feedbackTriageSchema>;
 
 export const rawMaterialOrderSchema = z.object({
   material: z.string().min(1, "Material is required"),

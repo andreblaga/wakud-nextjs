@@ -25,6 +25,7 @@ Where a step needs Claude Code, the prompt is in a fenced block — paste it ver
 | — · Production derivation | ⏳ code written and verified; **migration `phase5c` not yet run** |
 | 5c · Read-only detail views | ✅ `/deals/[id]`, `/contracts/[id]`, `/production/[id]`, `/finance/invoices/[id]` + a `/contracts` index; search now links to records, not lists |
 | 5d · Archive, not delete | ⏳ code written and verified; **migration `phase5d-archive.sql` not yet run — run it before deploying** |
+| 5e · Feedback module | ✅ `/feedback` — submissions, threaded replies over Realtime, triage, task conversion, notifications. Migration `phase6-feedback.sql` already run; types regenerated |
 
 **First sync results, verified against the database:** 8,186 documents across all 16 top-level folders (5.8 GB, bytes stay in SharePoint) · 108 `stock_levels` rows, 9 products × 12 months, 96 KL + 12 Kg · 0 errors · **0 duplicates after three runs** · every row rewritten in place by the latest run · B100 reconciles to the source workbook to the decimal.
 
@@ -417,6 +418,21 @@ no longer exist, and a voided tax invoice must remain on file.
 Run npm test, npx tsc --noEmit and npm run build. Commit as
 "Archive instead of delete for business records".
 ```
+
+## Step 5e — Feedback module · [CC] · ✅ Done 2026-08-20
+
+`supabase/phase6-feedback.sql` was already run, so this one needs nothing from Andre beyond looking at it. `lib/supabase/types.ts` was regenerated against the live database; the only diff against the hand-maintained file was the two new tables, which confirms the `archived_at` / `archived_by` columns added by hand in `a2a50c1` matched what the generator emits.
+
+What shipped:
+
+- **`/feedback`** — everyone signed in sees every item, executive_viewer included. Status and category filters live in the URL; the default view is the open queue, so archived items and anything already done are out of the way until asked for.
+- **`/feedback/new`** — title is the only required field. `submitted_by` is stamped from the session and never read from the form; the RLS policy insists it match `auth.uid()` regardless.
+- **`/feedback/[id]`** — the item and its thread, with replies arriving over Realtime the way Discussions does. Comments post through a server action so `author_id` comes from the session, and the returned row is appended locally, so a reply lands even where the socket cannot connect.
+- **Triage** (admin/gm) — status, resolution, and "Create task from this", which seeds a `tasks` row from the title and description and links the two. The link renders from both ends: the feedback item shows its task, the To-Do card shows "From feedback".
+- **Declining requires a reason**, checked in the server action rather than only in the form — server actions are reachable by direct POST, and a request that vanishes without explanation is how a feedback channel dies.
+- **Notifications** — admin/gm see anything still at status `new`; a submitter sees their own items whose newest comment is by someone else and newer than anything they have said on it. Both derived live from timestamps, no read-state table, deduped on `feedback:<id>` so one item never appears twice.
+
+**The `executive_viewer` exception is deliberate and tested.** Feedback is not business data. A suggestion box the CEO cannot post to is not a suggestion box, so submitting and commenting are gated on being signed in and nothing else — the same exception Discussions makes. Triage is the opposite and stays with admin/gm.
 
 ## Step 6 — Send the team the source questions · [Andre → Team] · 10 min
 

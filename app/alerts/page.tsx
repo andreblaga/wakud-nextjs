@@ -5,6 +5,7 @@ import { PageHeader, Card } from "@/components/ui";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/DataTable";
 import { createClient } from "@/lib/supabase/server";
 import { getNotifications } from "@/lib/notifications";
+import { getSessionUser } from "@/lib/auth";
 import { NOTIFICATION_ICON, SEVERITY_COLOR, TYPE_LABEL } from "@/components/notification-ui";
 import { formatDate } from "@/lib/dates";
 
@@ -23,10 +24,11 @@ async function AlertsContent() {
   const supabase = createClient();
   if (!supabase) return <ErrorState message="Supabase isn't configured." />;
 
-  const notifications = await getNotifications(supabase, 100);
+  const user = await getSessionUser();
+  const notifications = await getNotifications(supabase, 100, user);
 
   if (notifications.length === 0) {
-    return <EmptyState title="You're all caught up" message="No upcoming orders, low stock, new deals, or open alerts." icon={Bell} />;
+    return <EmptyState title="You're all caught up" message="No upcoming orders, low stock, new deals, feedback awaiting a reply, or open alerts." icon={Bell} />;
   }
 
   return (

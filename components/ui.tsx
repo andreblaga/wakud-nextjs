@@ -190,6 +190,13 @@ export function StatusBadge({ status }: { status: string }) {
     pending: "bg-amber-100 text-amber-800",
     active: "bg-brand-100 text-brand-800",
     archived: "bg-slate-200 text-slate-500",
+    // Feedback statuses. "planned" is deliberately left on the shared slate
+    // above — it is also a production/contract-volume status meaning "not
+    // started", and one word cannot carry two colours.
+    new: "bg-amber-100 text-amber-800",
+    reviewing: "bg-blue-100 text-blue-800",
+    done: "bg-brand-100 text-brand-800",
+    declined: "bg-slate-200 text-slate-500",
     archive: "bg-slate-200 text-slate-500",
     unarchive: "bg-blue-100 text-blue-800",
   };

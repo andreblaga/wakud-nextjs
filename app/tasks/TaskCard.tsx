@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import Link from "next/link";
-import { Pencil, Trash2, ChevronLeft, ChevronRight, Link2, Loader2 } from "lucide-react";
+import { Pencil, Trash2, ChevronLeft, ChevronRight, Link2, Loader2, Lightbulb } from "lucide-react";
 import { formatDate } from "@/lib/dates";
 import { moveTask, deleteTask } from "./actions";
 import type { TaskRow, TaskStatus } from "./types";
@@ -22,7 +22,16 @@ const LINK_HREF: Record<string, string> = {
 
 const ORDER: TaskStatus[] = ["todo", "in_progress", "done"];
 
-export default function TaskCard({ task, canEdit }: { task: TaskRow; canEdit: boolean }) {
+export default function TaskCard({
+  task,
+  canEdit,
+  fromFeedbackId = null,
+}: {
+  task: TaskRow;
+  canEdit: boolean;
+  /** Set when this task was created from a feedback request. */
+  fromFeedbackId?: string | null;
+}) {
   const [pending, startTransition] = useTransition();
 
   const idx = ORDER.indexOf(task.status);
@@ -60,6 +69,15 @@ export default function TaskCard({ task, canEdit }: { task: TaskRow; canEdit: bo
         >
           <Link2 className="h-3 w-3" />
           {task.link_type}: {task.link_id}
+        </Link>
+      )}
+
+      {fromFeedbackId && (
+        <Link
+          href={`/feedback/${fromFeedbackId}`}
+          className="mt-2 inline-flex items-center gap-1 rounded bg-slate-50 px-1.5 py-0.5 text-[11px] text-brand-700 hover:underline"
+        >
+          <Lightbulb className="h-3 w-3" /> From feedback
         </Link>
       )}
 

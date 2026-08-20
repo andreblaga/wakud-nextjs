@@ -6,6 +6,7 @@ import { ErrorState } from "@/components/DataTable";
 import ForecastChart, { type ForecastPoint } from "@/components/ForecastChart";
 import { createClient } from "@/lib/supabase/server";
 import { getNotifications } from "@/lib/notifications";
+import { getSessionUser } from "@/lib/auth";
 import { NOTIFICATION_ICON, SEVERITY_COLOR, TYPE_LABEL } from "@/components/notification-ui";
 import { formatUSD, formatNumber } from "@/lib/currency";
 import { monthLabel, currentMonthStart } from "@/lib/dates";
@@ -32,6 +33,7 @@ async function DashboardContent() {
   if (!supabase) return <ErrorState message="Supabase isn't configured." />;
 
   const month = currentMonthStart();
+  const viewer = await getSessionUser();
 
   const [dealsRes, committedRes, forecastRes, notifications] = await Promise.all([
     supabase.from("deals").select("status").in("status", ACTIVE_DEAL_STATUSES),
@@ -41,7 +43,7 @@ async function DashboardContent() {
       .select("month, production_profit, arb_profit, total_profit, working_capital_needed")
       .order("month", { ascending: true }),
     // Same source as the TopBar bell + /alerts, so the dashboard never diverges.
-    getNotifications(supabase, 6),
+    getNotifications(supabase, 6, viewer),
   ]);
 
   const firstError = dealsRes.error || committedRes.error || forecastRes.error;

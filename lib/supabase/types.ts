@@ -373,6 +373,91 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          archived_at: string | null
+          archived_by: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          resolution: string | null
+          status: string
+          submitted_by: string | null
+          task_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          resolution?: string | null
+          status?: string
+          submitted_by?: string | null
+          task_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          archived_by?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          resolution?: string | null
+          status?: string
+          submitted_by?: string | null
+          task_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedback_comments: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          feedback_id: string
+          id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          feedback_id: string
+          id?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          feedback_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_comments_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "feedback"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_exports: {
         Row: {
           data: Json

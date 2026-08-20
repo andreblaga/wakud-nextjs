@@ -24,8 +24,15 @@ import type { ServerSupabaseClient } from "@/lib/supabase/server";
 const ENTITIES = Object.keys(ARCHIVABLE) as ArchivableEntity[];
 
 describe("isArchivableEntity", () => {
-  it("accepts exactly the five configured entities", () => {
-    expect(ENTITIES).toEqual(["deal", "contract", "invoice", "raw_material_order", "shipment"]);
+  it("accepts exactly the configured entities", () => {
+    expect(ENTITIES).toEqual([
+      "deal",
+      "contract",
+      "invoice",
+      "raw_material_order",
+      "shipment",
+      "feedback",
+    ]);
     for (const e of ENTITIES) expect(isArchivableEntity(e)).toBe(true);
   });
 
@@ -97,6 +104,11 @@ describe("canArchive", () => {
     expect(canArchive("operations", "shipment")).toBe(true);
     expect(canArchive("operations", "deal")).toBe(false);
     expect(canArchive("operations", "invoice")).toBe(false);
+
+    // Feedback: anyone may submit one, but retiring one is a triage decision.
+    for (const role of ["sales", "operations", "finance"] as Role[]) {
+      expect(canArchive(role, "feedback")).toBe(false);
+    }
   });
 
   it("gates each entity on the same domain its edit action uses", () => {
@@ -107,6 +119,8 @@ describe("canArchive", () => {
     expect(ARCHIVABLE.invoice.domain).toBe("finance");
     expect(ARCHIVABLE.raw_material_order.domain).toBe("inventory");
     expect(ARCHIVABLE.shipment.domain).toBe("logistics");
+    // Archiving a request is triage, so admin/gm only — not the submitter.
+    expect(ARCHIVABLE.feedback.domain).toBe("feedback");
   });
 });
 
