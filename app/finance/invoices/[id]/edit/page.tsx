@@ -9,7 +9,9 @@ import { updateInvoice } from "../../actions";
 
 export default async function EditInvoicePage({ params }: { params: { id: string } }) {
   const user = await getSessionUser();
-  if (!canWrite(user?.role, "finance")) redirect("/finance");
+  // A reader who lands here is sent to the read-only view of the same record
+  // rather than bounced out to a list.
+  if (!canWrite(user?.role, "finance")) redirect(`/finance/invoices/${params.id}`);
 
   const supabase = createClient();
   if (!supabase) redirect("/finance");

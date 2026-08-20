@@ -27,7 +27,15 @@ const STATUSES = ["draft", "approved", "confirmed", "in_transit", "delivered", "
 const TYPES = ["production", "arbitrage"];
 
 const baseColumns: Column<DealRow>[] = [
-  { key: "deal_id", header: "Deal ID", render: (d) => <span className="font-medium text-slate-900">{d.deal_id}</span> },
+  {
+    key: "deal_id",
+    header: "Deal ID",
+    render: (d) => (
+      <Link href={`/deals/${d.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+        {d.deal_id}
+      </Link>
+    ),
+  },
   { key: "name", header: "Name" },
   { key: "deal_type", header: "Type", render: (d) => <span className="capitalize">{d.deal_type}</span> },
   { key: "buyer", header: "Buyer" },

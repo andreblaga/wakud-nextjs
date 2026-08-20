@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { Handshake } from "lucide-react";
+import { FileText } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth";
@@ -9,10 +9,12 @@ import { updateContract } from "../../actions";
 
 export default async function EditContractPage({ params }: { params: { id: string } }) {
   const user = await getSessionUser();
-  if (!canWrite(user?.role, "contracts")) redirect("/sales-forecast");
+  // A reader who lands here is sent to the read-only view of the same record
+  // rather than bounced out to a list.
+  if (!canWrite(user?.role, "contracts")) redirect(`/contracts/${params.id}`);
 
   const supabase = createClient();
-  if (!supabase) redirect("/sales-forecast");
+  if (!supabase) redirect("/contracts");
 
   const { data } = await supabase
     .from("contracts")
@@ -26,7 +28,7 @@ export default async function EditContractPage({ params }: { params: { id: strin
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title={`Edit ${defaults.name ?? "contract"}`} description="Buyer agreement & pricing" icon={Handshake} />
+      <PageHeader title={`Edit ${defaults.name ?? "contract"}`} description="Buyer agreement & pricing" icon={FileText} />
       <ContractForm action={action} defaults={defaults} submitLabel="Save changes" />
     </div>
   );

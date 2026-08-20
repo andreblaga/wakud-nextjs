@@ -16,6 +16,7 @@ import {
   ShieldAlert,
   RefreshCw,
   FileStack,
+  FileText,
 } from "lucide-react";
 
 export type NavItem = {
@@ -37,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Logistics", href: "/logistics", icon: Truck, description: "Shipments & deliveries", section: "Operations" },
 
   { label: "Deals", href: "/deals", icon: Handshake, description: "Trade evaluation & pipeline", section: "Commercial" },
+  { label: "Contracts", href: "/contracts", icon: FileText, description: "Buyer agreements & committed volume", section: "Commercial" },
   { label: "Sales Forecast", href: "/sales-forecast", icon: TrendingUp, description: "Committed volumes & projections", section: "Commercial" },
   { label: "Finance", href: "/finance", icon: Wallet, description: "Invoices & finance exports", section: "Commercial" },
 

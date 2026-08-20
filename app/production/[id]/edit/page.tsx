@@ -9,7 +9,9 @@ import { updateProductionPlan } from "../../actions";
 
 export default async function EditProductionPlanPage({ params }: { params: { id: string } }) {
   const user = await getSessionUser();
-  if (!canWrite(user?.role, "production")) redirect("/production");
+  // A reader who lands here is sent to the read-only view of the same record
+  // rather than bounced out to a list.
+  if (!canWrite(user?.role, "production")) redirect(`/production/${params.id}`);
 
   const supabase = createClient();
   if (!supabase) redirect("/production");

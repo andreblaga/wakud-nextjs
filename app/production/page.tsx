@@ -52,7 +52,15 @@ type QualityRow = {
 };
 
 const planColumns: Column<PlanRow>[] = [
-  { key: "month", header: "Month", render: (r) => <span className="font-medium text-slate-900">{monthLabel(r.month, true)}</span> },
+  {
+    key: "month",
+    header: "Month",
+    render: (r) => (
+      <Link href={`/production/${r.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+        {monthLabel(r.month, true)}
+      </Link>
+    ),
+  },
   { key: "target_output", header: "Target (t)", align: "right", render: (r) => formatNumber(r.target_output) },
   { key: "actual_output", header: "Actual (t)", align: "right", render: (r) => formatNumber(r.actual_output) },
   { key: "b100_output", header: "B100 (t)", align: "right", render: (r) => formatNumber(r.b100_output) },

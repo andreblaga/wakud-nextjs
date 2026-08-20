@@ -71,5 +71,6 @@ export async function updateInvoice(id: string, _prev: FormState, formData: Form
   });
 
   revalidatePath("/finance");
+  revalidatePath(`/finance/invoices/${id}`);
   redirect("/finance");
 }

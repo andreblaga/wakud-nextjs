@@ -3,12 +3,12 @@
 import { useState } from "react";
 // eslint-disable-next-line import/no-unresolved
 import { useFormState } from "react-dom";
-import { Info } from "lucide-react";
 import { Card } from "@/components/ui";
+import { DealAssumptions } from "@/components/DealAssumptions";
+import { DealEconomicsPanel } from "@/components/DealEconomicsPanel";
 import { TextInput, NumberInput, SelectInput, TextArea, FormError, FormActions } from "@/components/form";
 import { INITIAL_FORM_STATE, type FormState } from "@/lib/form-state";
-import { evaluateDeal, ASSUMPTION_NOTES, ASSUMPTIONS_UNCONFIRMED, type DealEconomics } from "@/lib/deal-economics";
-import { formatUSD, formatPercent } from "@/lib/currency";
+import { evaluateDeal, type DealEconomics } from "@/lib/deal-economics";
 
 type Action = (prev: FormState, formData: FormData) => Promise<FormState>;
 
@@ -123,59 +123,10 @@ export default function DealForm({
 
       {/* Live economics preview — recomputed client-side; the server recomputes on save. */}
       <div className="space-y-4">
-        <Card className="p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700">Economics preview</h2>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                econ.go ? "bg-brand-100 text-brand-800" : "bg-amber-100 text-amber-800"
-              }`}
-            >
-              {econ.go ? "GO" : "REVIEW"}
-            </span>
-          </div>
-          <dl className="mt-3 space-y-2 text-sm">
-            <Row label="Total cost" value={formatUSD(econ.total_cost)} />
-            <Row label="Total revenue" value={formatUSD(econ.total_revenue)} />
-            <Row label="Profit" value={formatUSD(econ.profit)} accent />
-            <Row label="Margin" value={formatPercent(econ.margin, { isFraction: false })} />
-            <Row label="Profit / tonne" value={formatUSD(econ.profit_per_tonne, { decimals: true })} />
-            <Row label="Pre-funding" value={formatUSD(econ.pre_funding_required)} />
-            <Row label="Funding cost" value={formatUSD(econ.funding_cost)} />
-          </dl>
-        </Card>
+        <DealEconomicsPanel econ={econ} title="Economics preview" />
 
-        <Card className="p-5">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-700">
-            <Info className="h-4 w-4 text-slate-400" /> Assumptions
-            {ASSUMPTIONS_UNCONFIRMED && (
-              <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase text-amber-800">
-                provisional
-              </span>
-            )}
-          </h2>
-          <p className="mt-1 text-[11px] text-slate-500">
-            Figures use these defaults until finance confirms them.
-          </p>
-          <ul className="mt-2 space-y-1 text-[11px] text-slate-500">
-            {ASSUMPTION_NOTES.map((a) => (
-              <li key={a.label} className="flex justify-between gap-2">
-                <span>{a.label}</span>
-                <span className="text-slate-700">{a.display}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <DealAssumptions />
       </div>
     </form>
-  );
-}
-
-function Row({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="flex items-center justify-between">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className={`tabular-nums ${accent ? "font-semibold text-accent-600" : "text-slate-800"}`}>{value}</dd>
-    </div>
   );
 }

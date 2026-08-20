@@ -3,7 +3,8 @@ import { History } from "lucide-react";
 import { PageHeader, StatusBadge } from "@/components/ui";
 import { DataTable, EmptyState, ErrorState, TableSkeleton, type Column } from "@/components/DataTable";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate } from "@/lib/dates";
+import { summarizeChange, type AuditLogRow } from "@/lib/audit";
+import { formatDate, timeOfDay } from "@/lib/dates";
 
 export default function ChangeLogPage() {
   return (
@@ -24,45 +25,13 @@ export default function ChangeLogPage() {
   );
 }
 
-type AuditRow = {
-  id: string;
-  user_id: string | null;
-  action: string;
-  entity_type: string;
-  entity_id: string | null;
-  old_value: unknown;
-  new_value: unknown;
-  created_at: string | null;
-};
-
-function timeOf(iso: string | null): string {
-  if (!iso) return "";
-  const t = iso.split("T")[1];
-  return t ? t.slice(0, 5) : "";
-}
-
-function changeSummary(row: AuditRow): string {
-  const hasOld = row.old_value && typeof row.old_value === "object";
-  const hasNew = row.new_value && typeof row.new_value === "object";
-  if (!hasOld && hasNew) return "created";
-  if (hasOld && !hasNew) return "removed";
-  if (hasOld && hasNew) {
-    const keys = new Set([
-      ...Object.keys(row.old_value as object),
-      ...Object.keys(row.new_value as object),
-    ]);
-    return `${keys.size} field${keys.size === 1 ? "" : "s"} changed`;
-  }
-  return "—";
-}
-
-const columns: Column<AuditRow>[] = [
+const columns: Column<AuditLogRow>[] = [
   {
     key: "created_at",
     header: "When",
     render: (r) => (
       <span className="whitespace-nowrap">
-        {formatDate(r.created_at)} <span className="text-slate-400">{timeOf(r.created_at)}</span>
+        {formatDate(r.created_at)} <span className="text-slate-400">{timeOfDay(r.created_at)}</span>
       </span>
     ),
   },
@@ -78,7 +47,7 @@ const columns: Column<AuditRow>[] = [
       </span>
     ),
   },
-  { key: "summary", header: "Changes", render: (r) => changeSummary(r) },
+  { key: "summary", header: "Changes", render: (r) => summarizeChange(r) },
 ];
 
 async function ChangeLogContent() {
@@ -92,7 +61,7 @@ async function ChangeLogContent() {
     .limit(200);
 
   if (error) return <ErrorState message={error.message} />;
-  const rows = (data ?? []) as AuditRow[];
+  const rows = (data ?? []) as AuditLogRow[];
 
   if (rows.length === 0) {
     return (

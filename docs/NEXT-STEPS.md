@@ -23,6 +23,7 @@ Where a step needs Claude Code, the prompt is in a fenced block — paste it ver
 | 9 · Documents page | ✅ `2d94548` — server-filtered, paginated, 8,186 files |
 | — · Global search | ✅ `4a24b84` — TopBar box was decoration; now real, RLS-scoped, injection-tested |
 | — · Production derivation | ⏳ code written and verified; **migration `phase5c` not yet run** |
+| 5c · Read-only detail views | ✅ `/deals/[id]`, `/contracts/[id]`, `/production/[id]`, `/finance/invoices/[id]` + a `/contracts` index; search now links to records, not lists |
 
 **First sync results, verified against the database:** 8,186 documents across all 16 top-level folders (5.8 GB, bytes stay in SharePoint) · 108 `stock_levels` rows, 9 products × 12 months, 96 KL + 12 Kg · 0 errors · **0 duplicates after three runs** · every row rewritten in place by the latest run · B100 reconciles to the source workbook to the decimal.
 
@@ -340,7 +341,11 @@ Also: February shows **15 KL wastage against 39.3 KL produced (38%)**. Possibly 
 
 ## Step 5c — Read-only detail views · [CC] · P1, before showing anyone
 
-**This blocks Step 11.** Every `[id]` route is an edit form that redirects users without write access, so the four executive-viewers can open lists and nothing else. Faris is your CEO.
+**✅ Done 2026-08-20.** Four detail pages plus a `/contracts` index. Every record in those four modules is now openable by any signed-in user — the Edit button is the only thing behind a role check, and an edit route that turns a reader away now sends them to that record's read-only page instead of out to a list. Global search links to records rather than to a pre-filtered list. Per-record history reads `audit_log` for the entity, and `summarizeChange()` names the fields that actually moved (the Change Log used to say "24 fields changed" on every save, because it counted the union of keys across an asymmetric before/after pair).
+
+*Original brief, for the record:*
+
+**This blocked Step 11.** Every `[id]` route was an edit form that redirected users without write access, so the four executive-viewers could open lists and nothing else. Faris is your CEO.
 
 ```
 WakudOS has no read-only detail view for any record. Every [id] route is an edit

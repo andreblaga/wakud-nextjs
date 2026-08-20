@@ -76,9 +76,10 @@ export async function GET(request: NextRequest) {
     id: string; title: string; status: string | null; priority: string | null;
   }[];
 
-  // Results link to list pages with the query pre-applied rather than to detail
-  // pages: every per-item page in this app is an edit form that redirects
-  // anyone without write access, so linking there would bounce viewers.
+  // Deals and contracts link straight to their read-only detail page, which any
+  // signed-in user may open. Tasks still land on the board with the query
+  // pre-applied — they have no detail page of their own — and documents open in
+  // SharePoint, where the user's own permissions apply.
   const groups: SearchGroup[] = [
     {
       type: "deal",
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
           type: "deal",
           title: d.deal_id ? `${d.deal_id} — ${d.name}` : d.name,
           subtitle: [d.buyer, d.status].filter(Boolean).join(" · ") || null,
-          href: `/deals?q=${encodeURIComponent(d.deal_id || d.name)}`,
+          href: `/deals/${d.id}`,
         }),
       ),
     },
@@ -99,16 +100,14 @@ export async function GET(request: NextRequest) {
       type: "contract",
       label: "Contracts",
       total: contractsRes.count ?? contracts.length,
-      // Contracts have no list page of their own — they are shown on Sales
-      // Forecast, which takes no query, so there is nothing to pre-apply.
-      seeAllHref: null,
+      seeAllHref: `/contracts?q=${encoded}`,
       results: contracts.map(
         (c): SearchResult => ({
           id: c.id,
           type: "contract",
           title: c.name,
           subtitle: [c.buyer, c.status].filter(Boolean).join(" · ") || null,
-          href: "/sales-forecast",
+          href: `/contracts/${c.id}`,
         }),
       ),
     },

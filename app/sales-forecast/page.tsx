@@ -67,7 +67,15 @@ type ContractRow = {
 };
 
 const contractColumns: Column<ContractRow>[] = [
-  { key: "name", header: "Contract", render: (c) => <span className="font-medium text-slate-900">{c.name}</span> },
+  {
+    key: "name",
+    header: "Contract",
+    render: (c) => (
+      <Link href={`/contracts/${c.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+        {c.name}
+      </Link>
+    ),
+  },
   { key: "buyer", header: "Buyer" },
   { key: "price_per_tonne", header: "Price /t", align: "right", render: (c) => formatUSD(c.price_per_tonne) },
   { key: "start_date", header: "Start", render: (c) => formatDate(c.start_date) },
@@ -141,7 +149,17 @@ async function ForecastContent() {
 
       {contracts.length > 0 && (
         <div className="mt-6">
-          <DataTable title="Contracts" columns={contractCols} rows={contracts} getRowKey={(c) => c.id} />
+          <DataTable
+            title="Contracts"
+            columns={contractCols}
+            rows={contracts}
+            getRowKey={(c) => c.id}
+            footer={
+              <Link href="/contracts" className="font-medium text-brand-700 hover:underline">
+                See all contracts
+              </Link>
+            }
+          />
         </div>
       )}
     </>

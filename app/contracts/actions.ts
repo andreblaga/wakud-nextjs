@@ -46,8 +46,9 @@ export async function createContract(_prev: FormState, formData: FormData): Prom
     newValue: row,
   });
 
+  revalidatePath("/contracts");
   revalidatePath("/sales-forecast");
-  redirect("/sales-forecast");
+  redirect("/contracts");
 }
 
 export async function updateContract(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
@@ -72,6 +73,8 @@ export async function updateContract(id: string, _prev: FormState, formData: For
     newValue: row,
   });
 
+  revalidatePath("/contracts");
+  revalidatePath(`/contracts/${id}`);
   revalidatePath("/sales-forecast");
-  redirect("/sales-forecast");
+  redirect(`/contracts/${id}`);
 }

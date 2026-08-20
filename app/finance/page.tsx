@@ -56,7 +56,15 @@ type ExportRow = {
 const PAID = new Set(["paid", "cancelled"]);
 
 const invoiceColumns: Column<InvoiceRow>[] = [
-  { key: "invoice_number", header: "Invoice", render: (i) => <span className="font-medium text-slate-900">{i.invoice_number}</span> },
+  {
+    key: "invoice_number",
+    header: "Invoice",
+    render: (i) => (
+      <Link href={`/finance/invoices/${i.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+        {i.invoice_number}
+      </Link>
+    ),
+  },
   { key: "buyer", header: "Buyer" },
   { key: "amount_usd", header: "Amount (USD)", align: "right", render: (i) => formatUSD(i.amount_usd, { decimals: true }) },
   { key: "amount_omr", header: "Amount (OMR)", align: "right", render: (i) => formatOMR(i.amount_omr) },

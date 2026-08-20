@@ -57,7 +57,7 @@ export default function ContractForm({
           <CheckboxInput name="auto_renew" label="Auto-renew" defaultChecked={defaults.auto_renew ?? false} />
         </div>
         <FormError message={state.formError} />
-        <FormActions cancelHref="/sales-forecast" submitLabel={submitLabel} />
+        <FormActions cancelHref="/contracts" submitLabel={submitLabel} />
       </Card>
     </form>
   );

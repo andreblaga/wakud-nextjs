@@ -19,8 +19,8 @@ Things we've deliberately deferred. Pull items from here when their time comes; 
 
 ## Role model gaps (found 2026-08-19 while wiring global search)
 
-- [ ] **Read-only detail views — P1, blocks showing the app to the executives.** Every `[id]` route in this app is an edit form that redirects anyone without write access (`app/deals/[id]/edit/page.tsx:11`). So the four `executive_viewer` accounts — John Jones, Faris Al Kharusi, Yawar Abbas Naqvi — can see list pages and **cannot open a single record anywhere in the app**. This only surfaced because global search tried to link to a record and couldn't. Needs `/deals/[id]`, `/contracts/[id]`, `/production/[id]`, `/invoices/[id]` as read-only views, with "Edit" behind `RoleGate`. Search results and Discussions deep-links should then point at these rather than at list pages.
-- [ ] **A `/contracts` index page.** Contracts are only rendered inside `/sales-forecast`, which takes no query. Global search therefore has no "see all" target for contracts and omits the link rather than offering one that silently drops the query.
+- [x] **Read-only detail views — done 2026-08-20.** Every `[id]` route was an edit form that redirected anyone without write access, so the four `executive_viewer` accounts — John Jones, Faris Al Kharusi, Yawar Abbas Naqvi — could see list pages and **could not open a single record anywhere in the app**. It only surfaced because global search tried to link to a record and couldn't. Now `/deals/[id]`, `/contracts/[id]`, `/production/[id]` and `/finance/invoices/[id]`, with "Edit" behind `RoleGate` and per-record history from `audit_log`; search links to records rather than to pre-filtered lists. **Still open: Discussions deep-links and the Change Log's entity column both still name a record without linking to it.**
+- [x] **A `/contracts` index page — done 2026-08-20.** Same DataTable pattern as `/deals`; global search's "see all contracts" now has a target, and `/contracts` is the contracts home (Sales Forecast still lists them, with a link through).
 
 ## Deletion / archiving
 

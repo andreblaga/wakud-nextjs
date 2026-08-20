@@ -9,7 +9,9 @@ import { updateDeal } from "../../actions";
 
 export default async function EditDealPage({ params }: { params: { id: string } }) {
   const user = await getSessionUser();
-  if (!canWrite(user?.role, "deals")) redirect("/deals");
+  // A reader who lands here is sent to the read-only view of the same record
+  // rather than bounced out to a list.
+  if (!canWrite(user?.role, "deals")) redirect(`/deals/${params.id}`);
 
   const supabase = createClient();
   if (!supabase) redirect("/deals");

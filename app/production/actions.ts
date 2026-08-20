@@ -69,5 +69,6 @@ export async function updateProductionPlan(id: string, _prev: FormState, formDat
   });
 
   revalidatePath("/production");
+  revalidatePath(`/production/${id}`);
   redirect("/production");
 }
