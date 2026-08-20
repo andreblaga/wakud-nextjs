@@ -20,6 +20,9 @@ Where a step needs Claude Code, the prompt is in a fenced block — paste it ver
 | 3d · `safety_stock_unit` + tests | ✅ `197e964` — Vitest, 16 tests, mutation-checked |
 | 4 · Vercel env vars | ✅ all seven present (five Production-only by design — secrets deliberately kept out of Preview) |
 | 5 · Run the sync | ✅ **three successful runs**, two local + one from production |
+| 9 · Documents page | ✅ `2d94548` — server-filtered, paginated, 8,186 files |
+| — · Global search | ✅ `4a24b84` — TopBar box was decoration; now real, RLS-scoped, injection-tested |
+| — · Production derivation | ⏳ code written and verified; **migration `phase5c` not yet run** |
 
 **First sync results, verified against the database:** 8,186 documents across all 16 top-level folders (5.8 GB, bytes stay in SharePoint) · 108 `stock_levels` rows, 9 products × 12 months, 96 KL + 12 Kg · 0 errors · **0 duplicates after three runs** · every row rewritten in place by the latest run · B100 reconciles to the source workbook to the decimal.
 
@@ -320,6 +323,82 @@ select * from sync_runs order by started_at desc limit 2;             -- 2 rows,
 Finally repeat once on the deployed Vercel URL to prove Step 4 worked.
 
 ---
+
+## Step 5b — Ship the production derivation · [Andre + CC] · 15 min
+
+Code is written, merged onto CC's latest `sync.ts`, typechecked and verified against the live workbook (3 months, 0 invented rows). **Not yet committed, and its migration has not run.** Do these in order — `sources.ts` already marks production `active`, so pushing before the migration makes the next sync report that area red.
+
+1. **[Andre]** SQL Editor → `supabase/phase5c-production-from-inventory.sql` → Run.
+2. **[CC]** Regenerate types (temp file first), drop the temporary `as any` around the `production_plan` `.eq("source","manual")` query in `lib/sharepoint/sync.ts`, run `npm test` + `tsc --noEmit` + `npm run build`, commit everything outstanding as *"Production: derive monthly output from the inventory workbook"*, then `git push`.
+3. **[Andre]** `/sync` → Run sync now. Expect a new **Production — monthly output** row: read 3, upserted 3, with two warnings in its note.
+
+⚠️ **Two source-data problems the derivation exposed.** Both are real and both belong in the team email:
+- **The yield is impossible.** Jan: 9.0 KL UCO in → 17.26 KL B100 out (192%). Feb: 17.0 → 39.3 (231%). Transesterification is ~1:1 by mass. Either UCO consumption is under-recorded or "Produced" means something else. This is the mass balance ISCC audits.
+- **Glycerol output is 0 in every month** while the tank level sits at a constant 96.8 KL. Byproduct production isn't recorded at all — a second hole in the mass balance, and nothing for the deal-economics glycerin assumption to be checked against.
+
+Also: February shows **15 KL wastage against 39.3 KL produced (38%)**. Possibly a tank transfer logged as wastage. Worth asking.
+
+## Step 5c — Read-only detail views · [CC] · P1, before showing anyone
+
+**This blocks Step 11.** Every `[id]` route is an edit form that redirects users without write access, so the four executive-viewers can open lists and nothing else. Faris is your CEO.
+
+```
+WakudOS has no read-only detail view for any record. Every [id] route is an edit
+form that redirects anyone without write access (see app/deals/[id]/edit/page.tsx:11),
+so the executive_viewer role — which is read-only by design — can see list pages
+and cannot open a single record anywhere in the app.
+
+Build read-only detail pages: /deals/[id], /contracts/[id], /production/[id],
+/finance/invoices/[id].
+
+- Server components via lib/supabase/server.ts so RLS applies. Readable by any
+  signed-in user; no redirect for read-only roles.
+- Show the record's fields in a clean read layout reusing components/ui.tsx —
+  not a disabled form.
+- An "Edit" button behind RoleGate, linking to the existing /[id]/edit route.
+  Users who can't write simply don't see it.
+- For deals, show the computed economics (cost, revenue, profit, margin,
+  profit/tonne) with the DEAL_ASSUMPTIONS basis note — same provisional-figures
+  warning the form carries.
+- Where a record has related rows (contract volumes, production confirmations,
+  audit history from audit_log for that entity_id), show them read-only.
+- Repoint global search results at these detail pages instead of list pages, and
+  drop the ?q= workaround where it's no longer needed.
+
+Also add a /contracts index page — contracts currently only render inside
+/sales-forecast, so search has no "see all" target for them. Same DataTable
+pattern as /deals.
+
+Run npm test, npx tsc --noEmit and npm run build. Commit as
+"Read-only detail views for deals, contracts, production and invoices".
+```
+
+## Step 5d — Archive, not delete · [CC] · P2
+
+Decision 2026-08-19: **no hard delete anywhere.** The RLS matrix already sets `allow_delete = false` on every business table and that stays. `audit_log.entity_id` has no foreign key, so deleting a record orphans its own Change Log history.
+
+```
+Add archiving to WakudOS. Do NOT add hard delete, and do NOT add DELETE policies
+to supabase/roles-rls.sql — allow_delete = false is deliberate. audit_log.entity_id
+has no FK, so a hard delete would leave Change Log entries pointing at records that
+no longer exist, and a voided tax invoice must remain on file.
+
+1. New migration: add archived_at TIMESTAMPTZ and archived_by UUID REFERENCES
+   auth.users(id) to deals, contracts, invoices, raw_material_orders and shipments.
+   Archiving is an UPDATE, which the existing per-role write matrix already permits
+   for the right roles — no policy changes needed. Index archived_at.
+2. Server actions to archive and unarchive, role-gated the same way the edit
+   actions are, and routed through lib/audit.ts. An archive is the single most
+   important thing to record.
+3. List pages filter archived_at IS NULL by default, with a "Show archived"
+   toggle. Archived rows render muted with an "Archived" badge.
+4. Archive button on the read-only detail views from the previous step, behind
+   RoleGate, with a confirm step.
+5. Unit tests for the action guards.
+
+Run npm test, npx tsc --noEmit and npm run build. Commit as
+"Archive instead of delete for business records".
+```
 
 ## Step 6 — Send the team the source questions · [Andre → Team] · 10 min
 
