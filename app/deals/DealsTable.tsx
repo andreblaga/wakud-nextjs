@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Search, Pencil } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { StatusBadge } from "@/components/ui";
+import { ShowArchivedToggle } from "@/components/ShowArchivedToggle";
 import ExportExcelButton from "@/components/ExportExcelButton";
 import { formatNumber, formatUSD, formatPercent } from "@/lib/currency";
 import type { ExportColumn } from "@/lib/export-excel";
@@ -21,6 +22,7 @@ export type DealRow = {
   profit: number | null;
   margin: number | null;
   profit_per_tonne: number | null;
+  archived_at: string | null;
 };
 
 const STATUSES = ["draft", "approved", "confirmed", "in_transit", "delivered", "paid"];
@@ -31,9 +33,12 @@ const baseColumns: Column<DealRow>[] = [
     key: "deal_id",
     header: "Deal ID",
     render: (d) => (
-      <Link href={`/deals/${d.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
-        {d.deal_id}
-      </Link>
+      <span className="flex items-center gap-2">
+        <Link href={`/deals/${d.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+          {d.deal_id}
+        </Link>
+        {d.archived_at && <StatusBadge status="archived" />}
+      </span>
     ),
   },
   { key: "name", header: "Name" },
@@ -56,6 +61,7 @@ const exportColumns: ExportColumn<DealRow>[] = [
   { header: "Profit (USD)", value: (d) => d.profit ?? null },
   { header: "Margin (%)", value: (d) => d.margin ?? null },
   { header: "Status", value: (d) => d.status },
+  { header: "Archived", value: (d) => (d.archived_at ? "Yes" : "No") },
 ];
 
 const editColumn: Column<DealRow> = {
@@ -69,7 +75,19 @@ const editColumn: Column<DealRow> = {
   ),
 };
 
-export default function DealsTable({ deals, canEdit = false }: { deals: DealRow[]; canEdit?: boolean }) {
+export default function DealsTable({
+  deals,
+  canEdit = false,
+  showArchived = false,
+  toggleArchivedHref,
+}: {
+  deals: DealRow[];
+  canEdit?: boolean;
+  /** Whether the server query included archived deals. */
+  showArchived?: boolean;
+  /** Href that flips that, with the other query parameters kept. */
+  toggleArchivedHref: string;
+}) {
   const columns = canEdit ? [...baseColumns, editColumn] : baseColumns;
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
@@ -120,6 +138,7 @@ export default function DealsTable({ deals, canEdit = false }: { deals: DealRow[
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+        <ShowArchivedToggle href={toggleArchivedHref} showArchived={showArchived} />
         <span className="ml-auto text-xs text-slate-400">
           {rows.length} of {deals.length}
         </span>
@@ -130,6 +149,7 @@ export default function DealsTable({ deals, canEdit = false }: { deals: DealRow[
         columns={columns}
         rows={rows}
         getRowKey={(d) => d.id}
+        rowClassName={(d) => (d.archived_at ? "opacity-55" : "")}
         footer={rows.length === 0 ? "No deals match the current filters." : undefined}
       />
     </div>

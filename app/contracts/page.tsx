@@ -9,7 +9,10 @@ import { getSessionUser } from "@/lib/auth";
 import { canWrite } from "@/lib/permissions";
 import { formatNumber, formatUSD } from "@/lib/currency";
 import { currentMonthStart } from "@/lib/dates";
+import { showArchivedFrom, toggleArchivedHref } from "@/lib/archive";
 import ContractsTable, { type ContractRow } from "./ContractsTable";
+
+type PageProps = { searchParams: Record<string, string | string[] | undefined> };
 
 /**
  * Contracts index.
@@ -18,7 +21,8 @@ import ContractsTable, { type ContractRow } from "./ContractsTable";
  * so global search had nowhere to send "see all contracts". This is that
  * target, and the way in to each contract's read-only detail page.
  */
-export default function ContractsPage() {
+export default function ContractsPage({ searchParams }: PageProps) {
+  const showArchived = showArchivedFrom(searchParams);
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
@@ -36,23 +40,34 @@ export default function ContractsPage() {
           </RoleGate>
         }
       />
-      <Suspense fallback={<TableSkeleton columns={8} />}>
-        <ContractsContent />
+      <Suspense key={String(showArchived)} fallback={<TableSkeleton columns={8} />}>
+        <ContractsContent
+          showArchived={showArchived}
+          toggleHref={toggleArchivedHref("/contracts", searchParams)}
+        />
       </Suspense>
     </div>
   );
 }
 
-async function ContractsContent() {
+async function ContractsContent({
+  showArchived,
+  toggleHref,
+}: {
+  showArchived: boolean;
+  toggleHref: string;
+}) {
   const supabase = createClient();
   if (!supabase) return <ErrorState message="Supabase isn't configured." />;
 
   const month = currentMonthStart();
+  let contractsRequest = supabase
+    .from("contracts")
+    .select("id, name, buyer, price_per_tonne, is_active, status, start_date, end_date, renewal_date, archived_at");
+  if (!showArchived) contractsRequest = contractsRequest.is("archived_at", null);
+
   const [contractsRes, committedRes] = await Promise.all([
-    supabase
-      .from("contracts")
-      .select("id, name, buyer, price_per_tonne, is_active, status, start_date, end_date, renewal_date")
-      .order("name", { ascending: true }),
+    contractsRequest.order("name", { ascending: true }),
     supabase.from("contract_volumes").select("planned_volume").gte("month", month),
   ]);
 
@@ -63,7 +78,8 @@ async function ContractsContent() {
   const contracts = (contractsRes.data ?? []) as ContractRow[];
   const committed = (committedRes.data ?? []) as { planned_volume: number | null }[];
 
-  const active = contracts.filter((c) => c.is_active);
+  // An archived contract is not an active commitment, however the list is filtered.
+  const active = contracts.filter((c) => c.is_active && !c.archived_at);
   const avgPrice = active.length
     ? active.reduce((s, c) => s + (Number(c.price_per_tonne) || 0), 0) / active.length
     : null;
@@ -72,7 +88,7 @@ async function ContractsContent() {
   return (
     <>
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Contracts" value={String(contracts.length)} />
+        <StatCard label="Contracts" value={String(contracts.filter((c) => !c.archived_at).length)} />
         <StatCard label="Active" value={String(active.length)} />
         <StatCard label="Avg price (active)" value={formatUSD(avgPrice)} unit="/t" />
         <StatCard
@@ -85,7 +101,12 @@ async function ContractsContent() {
       </div>
 
       {contracts.length > 0 ? (
-        <ContractsTable contracts={contracts} canEdit={canEdit} />
+        <ContractsTable
+          contracts={contracts}
+          canEdit={canEdit}
+          showArchived={showArchived}
+          toggleArchivedHref={toggleHref}
+        />
       ) : (
         <EmptyState
           title="No contracts yet"

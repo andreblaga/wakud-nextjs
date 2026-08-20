@@ -10,7 +10,10 @@ import {
 } from "@/components/ui";
 import { ErrorState } from "@/components/DataTable";
 import { EditButton } from "@/components/EditButton";
+import ArchiveButton from "@/components/ArchiveButton";
+import { ArchivedNotice } from "@/components/ArchivedNotice";
 import AuditTrail from "@/components/AuditTrail";
+import { toggleArchive } from "@/app/archive/actions";
 import { createClient } from "@/lib/supabase/server";
 import { formatOMR, formatUSD, USD_TO_OMR } from "@/lib/currency";
 import { formatDate } from "@/lib/dates";
@@ -36,7 +39,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const { data } = await supabase
     .from("invoices")
     .select(
-      "id, invoice_number, deal_id, buyer, amount_usd, amount_omr, issue_date, due_date, paid_date, status, payment_method, notes, created_at",
+      "id, invoice_number, deal_id, buyer, amount_usd, amount_omr, issue_date, due_date, paid_date, status, payment_method, notes, archived_at, created_at",
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -58,11 +61,22 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   return (
     <div className="mx-auto max-w-4xl">
       <BackLink href="/finance" label="Finance" />
+      {invoice.archived_at && <ArchivedNotice archivedAt={invoice.archived_at} label="invoice" />}
       <PageHeader
         title={invoice.invoice_number}
         description={invoice.buyer}
         icon={Wallet}
-        action={<EditButton domain="finance" href={`/finance/invoices/${invoice.id}/edit`} />}
+        action={
+          <div className="flex items-center gap-2">
+            <EditButton domain="finance" href={`/finance/invoices/${invoice.id}/edit`} />
+            <ArchiveButton
+              action={toggleArchive.bind(null, "invoice", invoice.id, !invoice.archived_at)}
+              domain="finance"
+              archived={!!invoice.archived_at}
+              label="invoice"
+            />
+          </div>
+        }
       />
 
       <div className="space-y-4">
@@ -128,6 +142,7 @@ type InvoiceDetail = {
   paid_date: string | null;
   status: string;
   payment_method: string | null;
+  archived_at: string | null;
   notes: string | null;
   created_at: string | null;
 };

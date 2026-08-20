@@ -5,13 +5,28 @@ import { DataTable, EmptyState, ErrorState, TableSkeleton, type Column } from "@
 import { createClient } from "@/lib/supabase/server";
 import { formatUSD, formatNumber } from "@/lib/currency";
 import { formatDate, currentMonthStart } from "@/lib/dates";
+import { showArchivedFrom, toggleArchivedHref } from "@/lib/archive";
+import { ShowArchivedToggle } from "@/components/ShowArchivedToggle";
 
-export default function LogisticsPage() {
+type PageProps = { searchParams: Record<string, string | string[] | undefined> };
+
+export default function LogisticsPage({ searchParams }: PageProps) {
+  const showArchived = showArchivedFrom(searchParams);
   return (
     <div className="mx-auto max-w-7xl">
-      <PageHeader title="Logistics" description="Shipments & deliveries" icon={Truck} />
-      <Suspense fallback={<TableSkeleton columns={7} title="Shipments" />}>
-        <LogisticsContent />
+      <PageHeader
+        title="Logistics"
+        description="Shipments & deliveries"
+        icon={Truck}
+        action={
+          <ShowArchivedToggle
+            href={toggleArchivedHref("/logistics", searchParams)}
+            showArchived={showArchived}
+          />
+        }
+      />
+      <Suspense key={String(showArchived)} fallback={<TableSkeleton columns={7} title="Shipments" />}>
+        <LogisticsContent showArchived={showArchived} />
       </Suspense>
     </div>
   );
@@ -27,10 +42,20 @@ type ShipmentRow = {
   tonnes_loaded: number | null;
   freight_cost_usd: number | null;
   status: string;
+  archived_at: string | null;
 };
 
 const columns: Column<ShipmentRow>[] = [
-  { key: "shipment_ref", header: "Ref", render: (s) => <span className="font-medium text-slate-900">{s.shipment_ref}</span> },
+  {
+    key: "shipment_ref",
+    header: "Ref",
+    render: (s) => (
+      <span className="flex items-center gap-2">
+        <span className="font-medium text-slate-900">{s.shipment_ref}</span>
+        {s.archived_at && <StatusBadge status="archived" />}
+      </span>
+    ),
+  },
   { key: "destination", header: "Destination" },
   { key: "vessel_name", header: "Vessel" },
   { key: "departure_date", header: "Departure", render: (s) => formatDate(s.departure_date) },
@@ -39,25 +64,29 @@ const columns: Column<ShipmentRow>[] = [
   { key: "status", header: "Status", render: (s) => <StatusBadge status={s.status} /> },
 ];
 
-async function LogisticsContent() {
+async function LogisticsContent({ showArchived }: { showArchived: boolean }) {
   const supabase = createClient();
   if (!supabase) return <ErrorState message="Supabase isn't configured." />;
 
-  const { data, error } = await supabase
+  let request = supabase
     .from("shipments")
-    .select("id, shipment_ref, destination, vessel_name, departure_date, eta_date, tonnes_loaded, freight_cost_usd, status")
-    .order("departure_date", { ascending: false, nullsFirst: false });
+    .select("id, shipment_ref, destination, vessel_name, departure_date, eta_date, tonnes_loaded, freight_cost_usd, status, archived_at");
+  if (!showArchived) request = request.is("archived_at", null);
+
+  const { data, error } = await request.order("departure_date", { ascending: false, nullsFirst: false });
 
   if (error) return <ErrorState message={error.message} />;
   const shipments = (data ?? []) as ShipmentRow[];
 
   const month = currentMonthStart();
-  const inTransit = shipments.filter((s) => s.status === "in_transit").length;
-  const planned = shipments.filter((s) => s.status === "planned").length;
-  const deliveredThisMonth = shipments.filter(
+  // Counts describe live shipments even when archived ones are on screen.
+  const live = shipments.filter((s) => !s.archived_at);
+  const inTransit = live.filter((s) => s.status === "in_transit").length;
+  const planned = live.filter((s) => s.status === "planned").length;
+  const deliveredThisMonth = live.filter(
     (s) => s.status === "delivered" && (s.eta_date ?? "") >= month,
   ).length;
-  const freightThisMonth = shipments
+  const freightThisMonth = live
     .filter((s) => (s.departure_date ?? "") >= month)
     .reduce((sum, s) => sum + (Number(s.freight_cost_usd) || 0), 0);
 
@@ -71,7 +100,13 @@ async function LogisticsContent() {
       </div>
 
       {shipments.length > 0 ? (
-        <DataTable title="Shipments" columns={columns} rows={shipments} getRowKey={(s) => s.id} />
+        <DataTable
+          title="Shipments"
+          columns={columns}
+          rows={shipments}
+          getRowKey={(s) => s.id}
+          rowClassName={(s) => (s.archived_at ? "opacity-55" : "")}
+        />
       ) : (
         <EmptyState title="No shipments yet" message="Shipments will appear here as they're scheduled." icon={Truck} />
       )}

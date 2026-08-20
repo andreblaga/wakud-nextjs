@@ -11,8 +11,13 @@ import { canWrite } from "@/lib/permissions";
 import { formatNumber } from "@/lib/currency";
 import { monthLabel, formatDate } from "@/lib/dates";
 import { unitLabel } from "@/lib/units";
+import { showArchivedFrom, toggleArchivedHref } from "@/lib/archive";
+import { ShowArchivedToggle } from "@/components/ShowArchivedToggle";
 
-export default function InventoryPage() {
+type PageProps = { searchParams: Record<string, string | string[] | undefined> };
+
+export default function InventoryPage({ searchParams }: PageProps) {
+  const showArchived = showArchivedFrom(searchParams);
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
@@ -32,8 +37,11 @@ export default function InventoryPage() {
           </RoleGate>
         }
       />
-      <Suspense fallback={<TableSkeleton columns={7} title="Stock by month" />}>
-        <InventoryContent />
+      <Suspense key={String(showArchived)} fallback={<TableSkeleton columns={7} title="Stock by month" />}>
+        <InventoryContent
+          showArchived={showArchived}
+          toggleHref={toggleArchivedHref("/inventory", searchParams)}
+        />
       </Suspense>
     </div>
   );
@@ -63,6 +71,7 @@ type OrderRow = {
   expected_delivery: string | null;
   status: string | null;
   auto_generated: boolean | null;
+  archived_at: string | null;
 };
 
 /**
@@ -111,7 +120,16 @@ const stockColumns: Column<StockRow>[] = [
 ];
 
 const orderColumns: Column<OrderRow>[] = [
-  { key: "material", header: "Material", render: (o) => <span className="font-medium text-slate-900">{o.material}</span> },
+  {
+    key: "material",
+    header: "Material",
+    render: (o) => (
+      <span className="flex items-center gap-2">
+        <span className="font-medium text-slate-900">{o.material}</span>
+        {o.archived_at && <StatusBadge status="archived" />}
+      </span>
+    ),
+  },
   { key: "supplier", header: "Supplier" },
   { key: "quantity_kg", header: "Qty (kg)", align: "right", render: (o) => formatNumber(o.quantity_kg) },
   { key: "lead_time_days", header: "Lead (d)", align: "right", render: (o) => formatNumber(o.lead_time_days) },
@@ -128,19 +146,29 @@ const orderColumns: Column<OrderRow>[] = [
   },
 ];
 
-async function InventoryContent() {
+async function InventoryContent({
+  showArchived,
+  toggleHref,
+}: {
+  showArchived: boolean;
+  toggleHref: string;
+}) {
   const supabase = createClient();
   if (!supabase) return <ErrorState message="Supabase isn't configured." />;
+
+  // Stock levels are periodic records and are not archivable; only the orders
+  // table below has an archived state.
+  let ordersRequest = supabase
+    .from("raw_material_orders")
+    .select("id, material, supplier, quantity_kg, lead_time_days, required_by, expected_delivery, status, auto_generated, archived_at");
+  if (!showArchived) ordersRequest = ordersRequest.is("archived_at", null);
 
   const [stockRes, ordersRes] = await Promise.all([
     supabase
       .from("stock_levels")
       .select("id, product, month, opening_stock, produced, purchased, delivered, closing_stock, safety_stock_level, safety_stock_unit, is_below_safety, unit")
       .order("month", { ascending: false }),
-    supabase
-      .from("raw_material_orders")
-      .select("id, material, supplier, quantity_kg, lead_time_days, required_by, expected_delivery, status, auto_generated")
-      .order("required_by", { ascending: true }),
+    ordersRequest.order("required_by", { ascending: true }),
   ]);
 
   const firstError = stockRes.error || ordersRes.error;
@@ -181,7 +209,9 @@ async function InventoryContent() {
   // Latest rows whose units rule out a safety comparison — counted separately so
   // they are visible rather than silently absent from "Below safety".
   const uncheckedUnits = Array.from(latestByProduct.values()).filter(unitsBlockComparison);
-  const openOrders = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled").length;
+  const openOrders = orders.filter(
+    (o) => !o.archived_at && o.status !== "delivered" && o.status !== "cancelled",
+  ).length;
 
   return (
     <>
@@ -253,7 +283,16 @@ async function InventoryContent() {
 
       {orders.length > 0 && (
         <div className="mt-6">
-          <DataTable title="Raw material orders" columns={orderCols} rows={orders} getRowKey={(o) => o.id} />
+          <div className="mb-3 flex justify-end">
+            <ShowArchivedToggle href={toggleHref} showArchived={showArchived} />
+          </div>
+          <DataTable
+            title="Raw material orders"
+            columns={orderCols}
+            rows={orders}
+            getRowKey={(o) => o.id}
+            rowClassName={(o) => (o.archived_at ? "opacity-55" : "")}
+          />
         </div>
       )}
     </>

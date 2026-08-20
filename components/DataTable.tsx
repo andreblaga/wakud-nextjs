@@ -24,12 +24,15 @@ export function DataTable<T>({
   getRowKey,
   title,
   footer,
+  rowClassName,
 }: {
   columns: Column<T>[];
   rows: T[];
   getRowKey: (row: T, index: number) => string | number;
   title?: string;
   footer?: ReactNode;
+  /** Extra classes per row — used to mute archived records. */
+  rowClassName?: (row: T, index: number) => string;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -56,7 +59,9 @@ export function DataTable<T>({
             {rows.map((row, i) => (
               <tr
                 key={getRowKey(row, i)}
-                className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60"
+                className={`border-b border-slate-50 last:border-0 hover:bg-slate-50/60 ${
+                  rowClassName?.(row, i) ?? ""
+                }`}
               >
                 {columns.map((c) => {
                   const content = c.render

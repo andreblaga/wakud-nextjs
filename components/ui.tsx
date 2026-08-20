@@ -189,6 +189,9 @@ export function StatusBadge({ status }: { status: string }) {
     planned: "bg-slate-100 text-slate-600",
     pending: "bg-amber-100 text-amber-800",
     active: "bg-brand-100 text-brand-800",
+    archived: "bg-slate-200 text-slate-500",
+    archive: "bg-slate-200 text-slate-500",
+    unarchive: "bg-blue-100 text-blue-800",
   };
   const cls = map[status.toLowerCase()] ?? "bg-slate-100 text-slate-600";
   return (

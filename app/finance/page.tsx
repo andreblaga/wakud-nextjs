@@ -10,8 +10,13 @@ import { getSessionUser } from "@/lib/auth";
 import { canWrite } from "@/lib/permissions";
 import { formatUSD, formatOMR, USD_TO_OMR } from "@/lib/currency";
 import { formatDate, currentMonthStart } from "@/lib/dates";
+import { showArchivedFrom, toggleArchivedHref } from "@/lib/archive";
+import { ShowArchivedToggle } from "@/components/ShowArchivedToggle";
 
-export default function FinancePage() {
+type PageProps = { searchParams: Record<string, string | string[] | undefined> };
+
+export default function FinancePage({ searchParams }: PageProps) {
+  const showArchived = showArchivedFrom(searchParams);
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
@@ -26,8 +31,11 @@ export default function FinancePage() {
           </RoleGate>
         }
       />
-      <Suspense fallback={<TableSkeleton columns={7} title="Invoices" />}>
-        <FinanceContent />
+      <Suspense key={String(showArchived)} fallback={<TableSkeleton columns={7} title="Invoices" />}>
+        <FinanceContent
+          showArchived={showArchived}
+          toggleHref={toggleArchivedHref("/finance", searchParams)}
+        />
       </Suspense>
     </div>
   );
@@ -43,6 +51,7 @@ type InvoiceRow = {
   due_date: string;
   paid_date: string | null;
   status: string;
+  archived_at: string | null;
 };
 type ExportRow = {
   id: string;
@@ -60,9 +69,12 @@ const invoiceColumns: Column<InvoiceRow>[] = [
     key: "invoice_number",
     header: "Invoice",
     render: (i) => (
-      <Link href={`/finance/invoices/${i.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
-        {i.invoice_number}
-      </Link>
+      <span className="flex items-center gap-2">
+        <Link href={`/finance/invoices/${i.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+          {i.invoice_number}
+        </Link>
+        {i.archived_at && <StatusBadge status="archived" />}
+      </span>
     ),
   },
   { key: "buyer", header: "Buyer" },
@@ -81,15 +93,23 @@ const exportColumns: Column<ExportRow>[] = [
   { key: "finance_acknowledged", header: "Acknowledged", render: (e) => (e.finance_acknowledged ? "Yes" : "No") },
 ];
 
-async function FinanceContent() {
+async function FinanceContent({
+  showArchived,
+  toggleHref,
+}: {
+  showArchived: boolean;
+  toggleHref: string;
+}) {
   const supabase = createClient();
   if (!supabase) return <ErrorState message="Supabase isn't configured." />;
 
+  let invoicesRequest = supabase
+    .from("invoices")
+    .select("id, invoice_number, buyer, amount_usd, amount_omr, issue_date, due_date, paid_date, status, archived_at");
+  if (!showArchived) invoicesRequest = invoicesRequest.is("archived_at", null);
+
   const [invoicesRes, exportsRes] = await Promise.all([
-    supabase
-      .from("invoices")
-      .select("id, invoice_number, buyer, amount_usd, amount_omr, issue_date, due_date, paid_date, status")
-      .order("issue_date", { ascending: false }),
+    invoicesRequest.order("issue_date", { ascending: false }),
     supabase
       .from("finance_exports")
       .select("id, month, export_type, exported_at, sent_to_finance, finance_acknowledged")
@@ -123,13 +143,17 @@ async function FinanceContent() {
   const month = currentMonthStart();
   const today = new Date().toISOString().slice(0, 10);
 
-  const outstanding = invoices
+  // Money owed is money owed on live invoices. An archived invoice has been
+  // taken out of the picture deliberately, so it never counts here — whether or
+  // not the table below is currently showing it.
+  const live = invoices.filter((i) => !i.archived_at);
+  const outstanding = live
     .filter((i) => !PAID.has(i.status))
     .reduce((s, i) => s + (Number(i.amount_usd) || 0), 0);
-  const paidThisMonth = invoices
+  const paidThisMonth = live
     .filter((i) => i.status === "paid" && (i.paid_date ?? "") >= month)
     .reduce((s, i) => s + (Number(i.amount_usd) || 0), 0);
-  const overdue = invoices
+  const overdue = live
     .filter((i) => !PAID.has(i.status) && i.due_date < today)
     .reduce((s, i) => s + (Number(i.amount_usd) || 0), 0);
 
@@ -144,10 +168,17 @@ async function FinanceContent() {
 
       {invoices.length > 0 ? (
         <>
-          <div className="mb-3 flex justify-end">
+          <div className="mb-3 flex items-center justify-end gap-2">
+            <ShowArchivedToggle href={toggleHref} showArchived={showArchived} />
             <InvoicesExport invoices={invoices} />
           </div>
-          <DataTable title="Invoices" columns={invoiceCols} rows={invoices} getRowKey={(i) => i.id} />
+          <DataTable
+            title="Invoices"
+            columns={invoiceCols}
+            rows={invoices}
+            getRowKey={(i) => i.id}
+            rowClassName={(i) => (i.archived_at ? "opacity-55" : "")}
+          />
         </>
       ) : (
         <EmptyState title="No invoices yet" message="Invoices will appear here once raised." icon={Wallet} />

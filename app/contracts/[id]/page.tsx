@@ -9,7 +9,10 @@ import {
 } from "@/components/ui";
 import { DataTable, ErrorState, type Column } from "@/components/DataTable";
 import { EditButton } from "@/components/EditButton";
+import ArchiveButton from "@/components/ArchiveButton";
+import { ArchivedNotice } from "@/components/ArchivedNotice";
 import AuditTrail from "@/components/AuditTrail";
+import { toggleArchive } from "@/app/archive/actions";
 import { createClient } from "@/lib/supabase/server";
 import { formatNumber, formatUSD } from "@/lib/currency";
 import { formatDate, monthLabel } from "@/lib/dates";
@@ -34,7 +37,7 @@ export default async function ContractDetailPage({ params }: { params: { id: str
   const { data } = await supabase
     .from("contracts")
     .select(
-      "id, name, buyer, price_per_tonne, is_active, status, start_date, end_date, renewal_date, payment_terms, incoterm, auto_renew, termination_notice_days, created_at",
+      "id, name, buyer, price_per_tonne, is_active, status, start_date, end_date, renewal_date, payment_terms, incoterm, auto_renew, termination_notice_days, archived_at, created_at",
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -57,11 +60,22 @@ export default async function ContractDetailPage({ params }: { params: { id: str
   return (
     <div className="mx-auto max-w-5xl">
       <BackLink href="/contracts" label="Contracts" />
+      {contract.archived_at && <ArchivedNotice archivedAt={contract.archived_at} label="contract" />}
       <PageHeader
         title={contract.name}
         description={contract.buyer}
         icon={FileText}
-        action={<EditButton domain="contracts" href={`/contracts/${contract.id}/edit`} />}
+        action={
+          <div className="flex items-center gap-2">
+            <EditButton domain="contracts" href={`/contracts/${contract.id}/edit`} />
+            <ArchiveButton
+              action={toggleArchive.bind(null, "contract", contract.id, !contract.archived_at)}
+              domain="contracts"
+              archived={!!contract.archived_at}
+              label="contract"
+            />
+          </div>
+        }
       />
 
       <div className="space-y-4">
@@ -133,6 +147,7 @@ type ContractDetail = {
   incoterm: string | null;
   auto_renew: boolean | null;
   termination_notice_days: number | null;
+  archived_at: string | null;
   created_at: string | null;
 };
 

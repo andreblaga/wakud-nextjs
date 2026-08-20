@@ -117,6 +117,8 @@ export type Database = {
       }
       contracts: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           auto_renew: boolean | null
           buyer: string
           created_at: string | null
@@ -133,6 +135,8 @@ export type Database = {
           termination_notice_days: number | null
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           auto_renew?: boolean | null
           buyer: string
           created_at?: string | null
@@ -149,6 +153,8 @@ export type Database = {
           termination_notice_days?: number | null
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           auto_renew?: boolean | null
           buyer?: string
           created_at?: string | null
@@ -169,6 +175,8 @@ export type Database = {
       deals: {
         Row: {
           approved_by: string | null
+          archived_at: string | null
+          archived_by: string | null
           buy_price_per_tonne: number
           buyer: string
           created_at: string | null
@@ -202,6 +210,8 @@ export type Database = {
         }
         Insert: {
           approved_by?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           buy_price_per_tonne: number
           buyer: string
           created_at?: string | null
@@ -235,6 +245,8 @@ export type Database = {
         }
         Update: {
           approved_by?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           buy_price_per_tonne?: number
           buyer?: string
           created_at?: string | null
@@ -440,6 +452,8 @@ export type Database = {
         Row: {
           amount_omr: number | null
           amount_usd: number
+          archived_at: string | null
+          archived_by: string | null
           buyer: string
           created_at: string | null
           deal_id: string | null
@@ -455,6 +469,8 @@ export type Database = {
         Insert: {
           amount_omr?: number | null
           amount_usd: number
+          archived_at?: string | null
+          archived_by?: string | null
           buyer: string
           created_at?: string | null
           deal_id?: string | null
@@ -470,6 +486,8 @@ export type Database = {
         Update: {
           amount_omr?: number | null
           amount_usd?: number
+          archived_at?: string | null
+          archived_by?: string | null
           buyer?: string
           created_at?: string | null
           deal_id?: string | null
@@ -963,6 +981,8 @@ export type Database = {
       raw_material_orders: {
         Row: {
           actual_delivery: string | null
+          archived_at: string | null
+          archived_by: string | null
           auto_generated: boolean | null
           created_at: string | null
           expected_delivery: string | null
@@ -980,6 +1000,8 @@ export type Database = {
         }
         Insert: {
           actual_delivery?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           auto_generated?: boolean | null
           created_at?: string | null
           expected_delivery?: string | null
@@ -997,6 +1019,8 @@ export type Database = {
         }
         Update: {
           actual_delivery?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           auto_generated?: boolean | null
           created_at?: string | null
           expected_delivery?: string | null
@@ -1017,6 +1041,8 @@ export type Database = {
       shipments: {
         Row: {
           actual_arrival_date: string | null
+          archived_at: string | null
+          archived_by: string | null
           bill_of_lading_number: string | null
           container_numbers: string[] | null
           contract_id: string | null
@@ -1041,6 +1067,8 @@ export type Database = {
         }
         Insert: {
           actual_arrival_date?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           bill_of_lading_number?: string | null
           container_numbers?: string[] | null
           contract_id?: string | null
@@ -1065,6 +1093,8 @@ export type Database = {
         }
         Update: {
           actual_arrival_date?: string | null
+          archived_at?: string | null
+          archived_by?: string | null
           bill_of_lading_number?: string | null
           container_numbers?: string[] | null
           contract_id?: string | null

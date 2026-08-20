@@ -24,6 +24,7 @@ Where a step needs Claude Code, the prompt is in a fenced block — paste it ver
 | — · Global search | ✅ `4a24b84` — TopBar box was decoration; now real, RLS-scoped, injection-tested |
 | — · Production derivation | ⏳ code written and verified; **migration `phase5c` not yet run** |
 | 5c · Read-only detail views | ✅ `/deals/[id]`, `/contracts/[id]`, `/production/[id]`, `/finance/invoices/[id]` + a `/contracts` index; search now links to records, not lists |
+| 5d · Archive, not delete | ⏳ code written and verified; **migration `phase5d-archive.sql` not yet run — run it before deploying** |
 
 **First sync results, verified against the database:** 8,186 documents across all 16 top-level folders (5.8 GB, bytes stay in SharePoint) · 108 `stock_levels` rows, 9 products × 12 months, 96 KL + 12 Kg · 0 errors · **0 duplicates after three runs** · every row rewritten in place by the latest run · B100 reconciles to the source workbook to the decimal.
 
@@ -380,7 +381,19 @@ Run npm test, npx tsc --noEmit and npm run build. Commit as
 
 ## Step 5d — Archive, not delete · [CC] · P2
 
+**⏳ Code done 2026-08-20 — the migration is not run yet, and it must go first.**
+
+1. **[Andre]** SQL Editor → `supabase/phase5d-archive.sql` → Run. **Before deploying the app release**, not after: the list and detail pages select `archived_at`, so against a database without those columns those pages show their error state.
+2. **[Andre]** Regenerate types if you want to be sure they match — `lib/supabase/types.ts` already carries the ten new columns by hand, so a regeneration should change nothing but formatting.
+3. **[Andre]** Spot-check: archive a test deal from `/deals/<id>`, confirm it drops off `/deals`, comes back under **Show archived** muted with an **Archived** badge, appears in the Change Log as `archive`, and that **Restore** puts it back.
+
+What shipped: `archived_at` / `archived_by` on deals, contracts, invoices, raw material orders and shipments, each indexed. Archiving is an UPDATE through `lib/archive.ts` and `app/archive/actions.ts`, gated by the same `requireWriter(domain)` as the edit actions and recorded in `audit_log` under its own `archive` / `unarchive` action. Lists filter `archived_at IS NULL` by default with a URL-backed **Show archived** toggle; KPI figures always count live rows only, so an archived invoice never shows up in "outstanding". **No DELETE policies were added and none should be.**
+
+**Still open:** raw material orders and shipments have the columns, the filter and the toggle but no detail page, so nothing in the UI archives them yet — that lands when those two get read-only detail views of their own.
+
 Decision 2026-08-19: **no hard delete anywhere.** The RLS matrix already sets `allow_delete = false` on every business table and that stays. `audit_log.entity_id` has no foreign key, so deleting a record orphans its own Change Log history.
+
+*Original brief, for the record:*
 
 ```
 Add archiving to WakudOS. Do NOT add hard delete, and do NOT add DELETE policies

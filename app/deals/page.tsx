@@ -8,9 +8,13 @@ import { createClient } from "@/lib/supabase/server";
 import { getSessionUser } from "@/lib/auth";
 import { canWrite } from "@/lib/permissions";
 import { formatPercent } from "@/lib/currency";
+import { showArchivedFrom, toggleArchivedHref } from "@/lib/archive";
 import DealsTable, { type DealRow } from "./DealsTable";
 
-export default function DealsPage() {
+type PageProps = { searchParams: Record<string, string | string[] | undefined> };
+
+export default function DealsPage({ searchParams }: PageProps) {
+  const showArchived = showArchivedFrom(searchParams);
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
@@ -28,30 +32,45 @@ export default function DealsPage() {
           </RoleGate>
         }
       />
-      <Suspense fallback={<TableSkeleton columns={9} />}>
-        <DealsContent />
+      <Suspense key={String(showArchived)} fallback={<TableSkeleton columns={9} />}>
+        <DealsContent
+          showArchived={showArchived}
+          toggleHref={toggleArchivedHref("/deals", searchParams)}
+        />
       </Suspense>
     </div>
   );
 }
 
-async function DealsContent() {
+async function DealsContent({
+  showArchived,
+  toggleHref,
+}: {
+  showArchived: boolean;
+  toggleHref: string;
+}) {
   const supabase = createClient();
   if (!supabase) return <ErrorState message="Supabase isn't configured." />;
 
-  const { data, error } = await supabase
+  let request = supabase
     .from("deals")
-    .select("id, deal_id, name, deal_type, status, buyer, tonnes, profit, margin, profit_per_tonne")
-    .order("created_at", { ascending: false });
+    .select("id, deal_id, name, deal_type, status, buyer, tonnes, profit, margin, profit_per_tonne, archived_at");
+  // Archived deals are out of the way by default; the toggle brings them back.
+  if (!showArchived) request = request.is("archived_at", null);
+
+  const { data, error } = await request.order("created_at", { ascending: false });
 
   if (error) return <ErrorState message={error.message} />;
 
   const user = await getSessionUser();
   const canEdit = canWrite(user?.role, "deals");
   const deals = (data ?? []) as DealRow[];
-  const countBy = (s: string) => deals.filter((d) => d.status === s).length;
-  const avgMargin = deals.length
-    ? deals.reduce((sum, d) => sum + (Number(d.margin) || 0), 0) / deals.length
+  // Headline figures describe the live pipeline, whether or not archived deals
+  // are on screen — an archived deal is one you have decided not to count.
+  const live = deals.filter((d) => !d.archived_at);
+  const countBy = (s: string) => live.filter((d) => d.status === s).length;
+  const avgMargin = live.length
+    ? live.reduce((sum, d) => sum + (Number(d.margin) || 0), 0) / live.length
     : null;
 
   return (
@@ -64,7 +83,7 @@ async function DealsContent() {
       </div>
 
       {deals.length > 0 ? (
-        <DealsTable deals={deals} canEdit={canEdit} />
+        <DealsTable deals={deals} canEdit={canEdit} showArchived={showArchived} toggleArchivedHref={toggleHref} />
       ) : (
         <EmptyState
           title="No deals yet"

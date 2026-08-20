@@ -11,9 +11,12 @@ import {
 } from "@/components/ui";
 import { DataTable, ErrorState, type Column } from "@/components/DataTable";
 import { EditButton } from "@/components/EditButton";
+import ArchiveButton from "@/components/ArchiveButton";
+import { ArchivedNotice } from "@/components/ArchivedNotice";
 import { DealAssumptions } from "@/components/DealAssumptions";
 import { DealEconomicsPanel } from "@/components/DealEconomicsPanel";
 import AuditTrail from "@/components/AuditTrail";
+import { toggleArchive } from "@/app/archive/actions";
 import { createClient } from "@/lib/supabase/server";
 import { evaluateDeal } from "@/lib/deal-economics";
 import { formatNumber, formatUSD } from "@/lib/currency";
@@ -40,7 +43,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
   const { data } = await supabase
     .from("deals")
     .select(
-      "id, deal_id, name, deal_type, status, buyer, input_product, output_product, producer, disport, tonnes, buy_price_per_tonne, sell_price_per_tonne, shipping_per_tonne, trucking_per_tonne, payment_type, profit, start_month, end_month, notes, created_at, updated_at",
+      "id, deal_id, name, deal_type, status, buyer, input_product, output_product, producer, disport, tonnes, buy_price_per_tonne, sell_price_per_tonne, shipping_per_tonne, trucking_per_tonne, payment_type, profit, archived_at, start_month, end_month, notes, created_at, updated_at",
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -76,11 +79,22 @@ export default async function DealDetailPage({ params }: { params: { id: string 
   return (
     <div className="mx-auto max-w-6xl">
       <BackLink href="/deals" label="Deals" />
+      {deal.archived_at && <ArchivedNotice archivedAt={deal.archived_at} label="deal" />}
       <PageHeader
         title={deal.deal_id || deal.name}
         description={deal.deal_id ? deal.name : "Deal"}
         icon={Handshake}
-        action={<EditButton domain="deals" href={`/deals/${deal.id}/edit`} />}
+        action={
+          <div className="flex items-center gap-2">
+            <EditButton domain="deals" href={`/deals/${deal.id}/edit`} />
+            <ArchiveButton
+              action={toggleArchive.bind(null, "deal", deal.id, !deal.archived_at)}
+              domain="deals"
+              archived={!!deal.archived_at}
+              label="deal"
+            />
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -171,6 +185,7 @@ type DealDetail = {
   trucking_per_tonne: number | null;
   payment_type: string | null;
   profit: number | null;
+  archived_at: string | null;
   start_month: string | null;
   end_month: string | null;
   notes: string | null;

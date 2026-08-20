@@ -93,9 +93,12 @@ async function ForecastContent() {
       .from("monthly_forecast")
       .select("month, total_committed, avg_contract_price, barka_output, gap, arb_required, production_revenue, arb_revenue, total_profit, working_capital_needed")
       .order("month", { ascending: true }),
+    // Archived contracts are excluded outright here: the forecast is about what
+    // is committed, and /contracts is where you go to see the retired ones.
     supabase
       .from("contracts")
       .select("id, name, buyer, price_per_tonne, is_active, status, start_date, end_date")
+      .is("archived_at", null)
       .order("name", { ascending: true }),
     supabase.from("contract_volumes").select("planned_volume").gte("month", month),
   ]);

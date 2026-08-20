@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Search, Pencil } from "lucide-react";
 import { DataTable, type Column } from "@/components/DataTable";
 import { StatusBadge } from "@/components/ui";
+import { ShowArchivedToggle } from "@/components/ShowArchivedToggle";
 import ExportExcelButton from "@/components/ExportExcelButton";
 import { formatUSD } from "@/lib/currency";
 import { formatDate } from "@/lib/dates";
@@ -21,6 +22,7 @@ export type ContractRow = {
   start_date: string | null;
   end_date: string | null;
   renewal_date: string | null;
+  archived_at: string | null;
 };
 
 const STATUSES = ["active", "pending", "expired", "terminated"];
@@ -30,9 +32,12 @@ const baseColumns: Column<ContractRow>[] = [
     key: "name",
     header: "Contract",
     render: (c) => (
-      <Link href={`/contracts/${c.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
-        {c.name}
-      </Link>
+      <span className="flex items-center gap-2">
+        <Link href={`/contracts/${c.id}`} className="font-medium text-slate-900 hover:text-brand-700 hover:underline">
+          {c.name}
+        </Link>
+        {c.archived_at && <StatusBadge status="archived" />}
+      </span>
     ),
   },
   { key: "buyer", header: "Buyer" },
@@ -52,6 +57,7 @@ const exportColumns: ExportColumn<ContractRow>[] = [
   { header: "Renewal", value: (c) => c.renewal_date },
   { header: "Status", value: (c) => c.status },
   { header: "Active", value: (c) => (c.is_active ? "Yes" : "No") },
+  { header: "Archived", value: (c) => (c.archived_at ? "Yes" : "No") },
 ];
 
 const editColumn: Column<ContractRow> = {
@@ -68,9 +74,15 @@ const editColumn: Column<ContractRow> = {
 export default function ContractsTable({
   contracts,
   canEdit = false,
+  showArchived = false,
+  toggleArchivedHref,
 }: {
   contracts: ContractRow[];
   canEdit?: boolean;
+  /** Whether the server query included archived contracts. */
+  showArchived?: boolean;
+  /** Href that flips that, with the other query parameters kept. */
+  toggleArchivedHref: string;
 }) {
   const columns = canEdit ? [...baseColumns, editColumn] : baseColumns;
   const [status, setStatus] = useState("");
@@ -123,6 +135,7 @@ export default function ContractsTable({
           />
           Active only
         </label>
+        <ShowArchivedToggle href={toggleArchivedHref} showArchived={showArchived} />
         <span className="ml-auto text-xs text-slate-400">
           {rows.length} of {contracts.length}
         </span>
@@ -133,6 +146,7 @@ export default function ContractsTable({
         columns={columns}
         rows={rows}
         getRowKey={(c) => c.id}
+        rowClassName={(c) => (c.archived_at ? "opacity-55" : "")}
         footer={rows.length === 0 ? "No contracts match the current filters." : undefined}
       />
     </div>

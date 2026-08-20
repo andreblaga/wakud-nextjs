@@ -4,7 +4,14 @@ import type { ServerSupabaseClient } from "@/lib/supabase/server";
 type Client = ServerSupabaseClient;
 type AuditInsert = Database["public"]["Tables"]["audit_log"]["Insert"];
 
-export type AuditAction = "create" | "update" | "delete";
+/**
+ * Actions recorded in audit_log.action.
+ *
+ * "delete" exists for completeness only — nothing in the app hard-deletes a
+ * business record, and roles-rls.sql makes sure nothing can. Retirement is
+ * "archive", which is a reversible UPDATE ("unarchive").
+ */
+export type AuditAction = "create" | "update" | "delete" | "archive" | "unarchive";
 
 /**
  * Shared server helper: record one row in audit_log for a write.
